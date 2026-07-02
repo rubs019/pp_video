@@ -27,7 +27,7 @@ Les modules d'étape ne dépendent que de `config` et `ffmpeg_utils` ; `pipeline
 - **Python 3.14** dans `.venv/` (venv du projet ; utiliser `.venv/bin/python`).
 - **ffmpeg** : requis par les étapes 1, 3 **et** le merge yt-dlp. Souvent installé via Homebrew (`/opt/homebrew/bin/ffmpeg`) **hors du PATH du shell** → `src/ffmpeg_utils.resoudre_ffmpeg` le localise explicitement, ne pas supposer qu'il est dans le PATH.
 - **mlx-vlm** + modèle `mlx-community/LocateAnything-3B-4bit` (~3,2 Go, téléchargé au 1er run, **Apple Silicon uniquement**). Le stock `mlx-vlm` 0.6.3 suffit (pas de branche dédiée malgré la doc du modèle).
-- **Ollama** : serveur local actif sur `http://localhost:11434` + un modèle instruct (défaut `qwen3.5:9b`) pour l'étape 4.
+- **Ollama** : serveur local actif sur `http://localhost:11434` + un modèle instruct (défaut `mistral:7b`) pour l'étape 4.
 - `requirements.txt` liste les dépendances pip épinglées aux versions testées ; `mlx`/`mlx-vlm` portent un marqueur `darwin`/`arm64` (ignorés hors Apple Silicon). ffmpeg reste hors pip (`brew install ffmpeg`).
 
 ## Commandes

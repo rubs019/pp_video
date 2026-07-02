@@ -61,7 +61,7 @@ url ──▶ lister_videos_playlist ──▶ [urls]
 
 ### Étape 2 — Validation visuelle (`vision.py`)
 - Modèle `mlx-community/LocateAnything-3B-4bit` (VLM de grounding) via **mlx-vlm**, chargé **une seule fois** (cache module `_modele_vision`) et réutilisé sur toutes les vidéos ; `_liberer_memoire_mlx()` vide le cache MLX après inférence.
-- Pour chaque segment : `FRAMES_PAR_SEGMENT` (3) frames extraites via **OpenCV** (pas ffmpeg), soumises au modèle avec le prompt `PROMPT_DETECTION`.
+- Pour chaque segment : `FRAMES_PAR_SEGMENT` (2) frames extraites via **OpenCV** (pas ffmpeg), soumises au modèle avec le prompt `PROMPT_DETECTION`.
 - Le modèle renvoie des boîtes au format `<ref>...</ref><box><x1><y1><x2><y2></box>` en coordonnées **0–1000**, parsées par regex.
 - `_calculer_crop_x` : centre le crop 9:16 sur le barycentre horizontal des boîtes (converti en pixels), borné au cadre.
 - Un segment **sans aucune détection est rejeté** (faux positif audio). **Sortie : `[{debut, fin, crop_x}]`.**
@@ -72,7 +72,7 @@ url ──▶ lister_videos_playlist ──▶ [urls]
 
 ### Étape 4 — Enrichissement (`enrichissement.py`)
 - **1 seul appel LLM par vidéo** (les métadonnées sont au niveau vidéo, chaque clip en hérite).
-- `_appeler_ollama` : `POST http://localhost:11434/api/generate` avec `format` = **schéma JSON** imposé, `stream=False`, `think=False` (désactive le raisonnement des modèles « thinking » ; repli automatique si le modèle refuse ce champ). Modèle par défaut `qwen3.5:9b`.
+- `_appeler_ollama` : `POST http://localhost:11434/api/generate` avec `format` = **schéma JSON** imposé, `stream=False`, `think=False` (désactive le raisonnement des modèles « thinking » ; repli automatique si le modèle refuse ce champ). Modèle par défaut `mistral:7b`.
 - `_extraire_json` : retire un éventuel bloc `<think>`, `json.loads`, repli sur extraction de la 1re accolade équilibrée.
 - **Piège de la date neutralisé** : `_valider_date` n'accepte qu'une date `AAAA-MM-JJ` plausible issue du texte libre. `upload_date`/`timestamp` de yt-dlp (date de re-publication) ne sont **jamais** utilisés comme date d'événement.
 - **Non bloquant** : `enrichir_metadonnees` ne lève jamais ; toute panne (Ollama down, JSON invalide) → repli `_enrichi=False` avec valeurs `inconnu`.

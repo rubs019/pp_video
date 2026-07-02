@@ -14,12 +14,12 @@ DUREE_HIGHLIGHT = 20          # Durée estimée du clip en secondes
 # --- Étape 2 : validation visuelle ---
 MODELE_VISION = "mlx-community/LocateAnything-3B-4bit"  # VLM de grounding (MLX / Apple Silicon)
 PROMPT_DETECTION = "Detect all persons in the image."  # Requête de grounding LocateAnything
-FRAMES_PAR_SEGMENT = 3        # Frames échantillonnées par candidat pour la validation
+FRAMES_PAR_SEGMENT = 2        # Frames échantillonnées par candidat (2 = compromis vitesse/robustesse)
 RATIO_VERTICAL = 9 / 16       # Format de sortie vertical (9:16)
 
 # --- Étape 4 : enrichissement métadonnées (LLM local Ollama) ---
 OLLAMA_URL = "http://localhost:11434/api/generate"
-MODELE_LLM = "qwen3.5:9b"     # instruct local ; repli non-thinking : "mistral:7b"
+MODELE_LLM = "mistral:7b"     # instruct local (compromis vitesse/qualité) ; + rapide : "llama3.2" ; + fin : "qwen3.5:9b"
 OLLAMA_TIMEOUT = 120          # secondes
 OLLAMA_NUM_CTX = 8192
 PLATEFORMES = ["instagram_reels", "tiktok", "youtube_shorts", "x"]
