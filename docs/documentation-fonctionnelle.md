@@ -45,9 +45,20 @@ L'URL se donne **directement au lancement** (pas besoin de modifier de fichier) 
 
 # Une seule vidéo
 .venv/bin/python main.py "https://www.youtube.com/watch?v=VOTRE_VIDEO"
+
+# Tout retraiter en ignorant le registre des vidéos déjà traitées
+.venv/bin/python main.py "https://www.youtube.com/playlist?list=..." --force
 ```
 
 Le pipeline traite les vidéos **une par une** (« flux tendu ») : téléchargement → traitement → suppression de la source pour économiser l'espace disque → vidéo suivante.
+
+### Lancement quotidien : les vidéos déjà traitées sont ignorées
+
+Le pipeline tient un **registre** (`highlights_prets/videos_traitees.json`) des vidéos déjà traitées. À chaque lancement, il **saute automatiquement** celles qu'il a déjà analysées, **avant même de les télécharger**. Vous pouvez donc **relancer sur la même playlist chaque jour** sans retraiter l'existant : seules les nouvelles vidéos sont traitées.
+
+- Une vidéo est enregistrée dès qu'elle a été **analysée jusqu'au bout**, même si elle n'a produit aucun clip.
+- Le fichier registre est lisible (ID, date de traitement, titre, nombre de clips) — c'est votre trace de « ce qui a déjà été fait ».
+- Pour **forcer le retraitement** malgré le registre : ajoutez `--force`.
 
 ## 5. Ce que vous pouvez ajuster (dans `src/config.py`)
 

@@ -18,6 +18,7 @@ src/
 ├── vision.py              Étape 2 — verifier_et_cadrer_locate_anything()
 ├── decoupage.py           Étape 3 — couper_et_recadrer_video()
 ├── enrichissement.py      Étape 4 — enrichir_metadonnees(), nommage, légendes, manifeste
+├── historique.py          Registre des vidéos déjà traitées (videos_traitees.json)
 └── pipeline.py            Orchestration — traiter_video(), executer_pipeline_complet()
 ```
 
@@ -82,7 +83,8 @@ url ──▶ lister_videos_playlist ──▶ [urls]
 
 ## 5. Orchestration & résilience (`pipeline.py`)
 
-- `executer_pipeline_complet(url_source=None)` : `url_source` prime, sinon repli sur `config.URL_SOURCE`. Boucle sur `lister_videos_playlist`.
+- `executer_pipeline_complet(url_source=None, force=False)` : `url_source` prime, sinon repli sur `config.URL_SOURCE`. Boucle sur `lister_videos_playlist` (qui renvoie des paires `(video_id, url)`).
+- **Registre des vidéos traitées** (`historique.py`, fichier `videos_traitees.json` indexé par ID) : avant téléchargement, une vidéo déjà enregistrée est **ignorée** (`est_deja_traitee`) sauf si `force=True`. Après un `traiter_video` mené à terme (même 0 clip), la vidéo est enregistrée (`marquer_traitee` : date + titre + nb_clips) ; **jamais** sur échec de téléchargement ou plantage (→ retry au prochain run). Amorçage la 1re fois depuis les `video_id` de `manifeste.json`.
 - Chaque vidéo est traitée dans un `try/except/finally` :
   - `except Exception` : log clair, on passe à la vidéo suivante (**résilience du lot**).
   - `finally` : suppression de la source (économie d'espace disque), même en cas d'erreur.
@@ -112,6 +114,7 @@ url ──▶ lister_videos_playlist ──▶ [urls]
 | JSON source de vérité, CSV régénéré | Dédup et cohérence garanties entre les deux formats. |
 | ffmpeg résolu explicitement | Indépendance vis-à-vis du PATH du shell. |
 | Audio ré-encodé en AAC | Compatibilité plateformes (opus-en-MP4 mal supporté). |
+| Registre des vidéos traitées | Flux quotidien idempotent : ne pas re-télécharger/re-analyser les anciennes vidéos de la playlist. |
 
 ## 9. Points d'extension
 

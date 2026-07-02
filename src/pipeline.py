@@ -6,21 +6,22 @@ from .config import URL_SOURCE
 from .decoupage import couper_et_recadrer_video
 from .enrichissement import (construire_base_nom, ecrire_legende_txt,
                              enrichir_metadonnees, maj_manifeste)
+from .historique import charger_historique, est_deja_traitee, marquer_traitee
 from .telechargement import lister_videos_playlist, telecharger_video
 from .vision import verifier_et_cadrer_locate_anything
 
 
 def traiter_video(video_path, info):
-    """Enchaîne les étapes 1 → 2 → 3 → 4 sur une vidéo déjà téléchargée."""
+    """Enchaîne les étapes 1 → 2 → 3 → 4 sur une vidéo déjà téléchargée. Renvoie le nb de clips."""
     info = info or {}
     candidats = analyser_audio_fast(video_path)
     if not candidats:
         print(" -> Aucun moment fort audio, vidéo ignorée.")
-        return
+        return 0
     clips = verifier_et_cadrer_locate_anything(video_path, candidats)
     if not clips:
         print(" -> Aucun clip validé visuellement.")
-        return
+        return 0
     # Étape 4 : 1 seul appel LLM par vidéo (métadonnées communes à tous les clips).
     meta = enrichir_metadonnees(info)
     base_nom = construire_base_nom(meta, info.get("id"))
@@ -29,26 +30,38 @@ def traiter_video(video_path, info):
         ecrire_legende_txt(chemin, meta, i)
     total = maj_manifeste(chemins, meta, info)
     print(f" -> {len(chemins)} clip(s) enrichis + légendes. Manifeste : {total} entrée(s).")
+    return len(chemins)
 
 
-def executer_pipeline_complet(url_source=None):
+def executer_pipeline_complet(url_source=None, force=False):
     # URL passée en argument prioritaire ; sinon repli sur la valeur de config.
     url_source = url_source or URL_SOURCE
     print("=== DÉMARRAGE DE LA MACHINE À HIGHLIGHTS EN FLUX TENDU ===")
+    historique = charger_historique()
     videos = lister_videos_playlist(url_source)
-    print(f"{len(videos)} vidéo(s) à traiter.")
+    print(f"{len(videos)} vidéo(s) dans la source ({len(historique)} déjà au registre).")
 
-    for i, url in enumerate(videos, 1):
+    for i, (video_id, url) in enumerate(videos, 1):
         print(f"\n--- [{i}/{len(videos)}] {url} ---")
+        # Saut AVANT téléchargement : on n'a rien à re-faire sur une vidéo déjà analysée.
+        if video_id and not force and est_deja_traitee(video_id, historique):
+            print(f" -> Déjà traitée ({video_id}), ignorée. (--force pour retraiter)")
+            continue
+
         video_path = None
         try:
             video_path, info = telecharger_video(url)
             if not video_path or not os.path.exists(video_path):
                 print(" -> Échec du téléchargement, on passe à la suivante.")
-                continue
-            traiter_video(video_path, info)
+                continue  # non marquée : nouvelle tentative au prochain run
+            info = info or {}
+            nb = traiter_video(video_path, info)
+            # Analyse menée à son terme -> on enregistre la vidéo (même si 0 clip).
+            historique = marquer_traitee(info.get("id") or video_id,
+                                         info.get("title", ""), nb)
         except Exception as e:
             # Flux tendu résilient : un échec isolé ne doit pas faire tomber tout le lot.
+            # Non marquée non plus -> retentée au prochain run.
             print(f" -> ERREUR sur cette vidéo, on continue : {e}")
         finally:
             # Suppression de la source pour préserver l'espace disque du Mac.

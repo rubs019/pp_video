@@ -17,6 +17,7 @@ Pipeline (package `src/`, point d'entrée `main.py` à la racine) qui, à partir
 | `vision.py` | Étape 2 — `verifier_et_cadrer_locate_anything` (+ chargement modèle MLX). |
 | `decoupage.py` | Étape 3 — `couper_et_recadrer_video`. |
 | `enrichissement.py` | Étape 4 — `enrichir_metadonnees`, nommage enrichi, légendes `.txt`, manifeste. |
+| `historique.py` | Registre des vidéos déjà traitées (`videos_traitees.json`) : `charger_historique`, `est_deja_traitee`, `marquer_traitee`. |
 | `pipeline.py` | Orchestration — `traiter_video`, `executer_pipeline_complet`. |
 
 Les modules d'étape ne dépendent que de `config` et `ffmpeg_utils` ; `pipeline` dépend de tous. Imports relatifs (`from .config import ...`) → à lancer comme package via `main.py`.
@@ -41,6 +42,9 @@ python3 -m py_compile src/*.py main.py
 
 # Sans argument : utilise URL_SOURCE de src/config.py (erreur claire si c'est encore le gabarit)
 .venv/bin/python main.py
+
+# Retraiter même les vidéos déjà enregistrées au registre
+.venv/bin/python main.py "https://www.youtube.com/playlist?list=..." --force
 ```
 
 Pour un test isolé d'une étape sans re-télécharger, importer le module ciblé et appeler sa fonction (`from src.audio import analyser_audio_fast`, `from src.enrichissement import enrichir_metadonnees`, ...) sur un fichier de `combats_bruts/`. Les fonctions sont découplées et réutilisables ainsi.
@@ -63,6 +67,7 @@ Pour un test isolé d'une étape sans re-télécharger, importer le module cibl�
 - **Métadonnées au niveau vidéo** : les vidéos sont mono-combat → un seul appel LLM par vidéo, tous les clips héritent des mêmes métadonnées (+ leur index). Ne pas appeler le LLM par clip.
 - **Modèle vision chargé une seule fois** (`_charger_modele_vision`, cache global `_modele_vision` dans `vision.py`) et réutilisé sur toutes les vidéos ; `_liberer_memoire_mlx` vide le cache MLX après inférence.
 - **Manifeste** : `manifeste.json` est la **source de vérité** (upsert dédupliqué par `chemin`) ; `manifeste.csv` est **régénéré intégralement** depuis le JSON à chaque écriture.
+- **Registre des vidéos traitées** (`src/historique.py`, fichier `highlights_prets/videos_traitees.json`, indexé par ID YouTube) : `executer_pipeline_complet` **saute avant téléchargement** toute vidéo déjà enregistrée. Une vidéo est marquée dès qu'elle est analysée jusqu'au bout (même 0 clip), **jamais** sur échec de téléchargement ou plantage (→ retry). `--force` ignore le registre. Au 1er usage, le registre s'amorce depuis les `video_id` de `manifeste.json`.
 - Toute la configuration se modifie dans **`src/config.py`** — c'est le seul endroit à toucher pour ajuster le comportement.
 
 ## Licence — contrainte bloquante pour la production

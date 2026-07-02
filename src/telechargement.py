@@ -1,5 +1,6 @@
 """Téléchargement yt-dlp : listing de playlist et récupération d'une vidéo (chemin réel + info)."""
 import os
+import re
 
 import yt_dlp
 
@@ -7,8 +8,20 @@ from .config import DOSSIER_BRUT
 from .ffmpeg_utils import resoudre_ffmpeg
 
 
+def _extraire_id_youtube(url):
+    """Extrait l'ID (11 caractères) d'une URL YouTube ; None si introuvable."""
+    if not url:
+        return None
+    m = re.search(r"(?:v=|youtu\.be/|/shorts/|/embed/)([A-Za-z0-9_-]{11})", url)
+    return m.group(1) if m else None
+
+
 def lister_videos_playlist(url):
-    """Renvoie les URLs des vidéos d'une playlist (sans téléchargement). Gère aussi une vidéo isolée."""
+    """Renvoie des paires (video_id, url), sans téléchargement. Gère aussi une vidéo isolée.
+
+    video_id peut être None pour une URL isolée non standard (le saut pré-téléchargement
+    est alors ignoré ; la vidéo sera marquée après coup via son id réel).
+    """
     opts = {
         "quiet": True,
         "no_warnings": True,
@@ -19,8 +32,8 @@ def lister_videos_playlist(url):
         info = ydl.extract_info(url, download=False)
     entrees = (info or {}).get("entries")
     if not entrees:  # URL d'une vidéo isolée, pas une playlist
-        return [url]
-    return [f"https://www.youtube.com/watch?v={e['id']}"
+        return [(_extraire_id_youtube(url), url)]
+    return [(e["id"], f"https://www.youtube.com/watch?v={e['id']}")
             for e in entrees if e and e.get("id")]
 
 

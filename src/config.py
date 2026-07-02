@@ -28,6 +28,7 @@ VALEUR_INCONNUE = "inconnu"
 NOM_FICHIER_MAX = 80          # longueur max du base_nom slugifié
 MANIFESTE_JSON = os.path.join(DOSSIER_SORTIE, "manifeste.json")  # source de vérité
 MANIFESTE_CSV = os.path.join(DOSSIER_SORTIE, "manifeste.csv")    # régénéré depuis le JSON
+FICHIER_HISTORIQUE = os.path.join(DOSSIER_SORTIE, "videos_traitees.json")  # registre des vidéos déjà traitées
 
 os.makedirs(DOSSIER_BRUT, exist_ok=True)
 os.makedirs(DOSSIER_SORTIE, exist_ok=True)

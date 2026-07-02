@@ -20,6 +20,10 @@ def main():
         help="URL de la playlist ou de la vidéo YouTube. "
              "Par défaut : URL_SOURCE défini dans src/config.py.",
     )
+    parser.add_argument(
+        "--force", action="store_true",
+        help="Retraiter même les vidéos déjà enregistrées dans le registre (videos_traitees.json).",
+    )
     args = parser.parse_args()
 
     if "ID_DE_LA_PLAYLIST" in args.url:
@@ -28,7 +32,7 @@ def main():
             'Passez une URL en argument : python main.py "https://www.youtube.com/..."'
         )
 
-    executer_pipeline_complet(args.url)
+    executer_pipeline_complet(args.url, force=args.force)
 
 
 if __name__ == "__main__":
