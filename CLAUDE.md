@@ -45,6 +45,9 @@ python3 -m py_compile src/*.py main.py
 
 # Retraiter même les vidéos déjà enregistrées au registre
 .venv/bin/python main.py "https://www.youtube.com/playlist?list=..." --force
+
+# Interface web locale (Streamlit) : onglets Lancer / Galerie / Manifeste
+.venv/bin/streamlit run interface_web.py
 ```
 
 Pour un test isolé d'une étape sans re-télécharger, importer le module ciblé et appeler sa fonction (`from src.audio import analyser_audio_fast`, `from src.enrichissement import enrichir_metadonnees`, ...) sur un fichier de `combats_bruts/`. Les fonctions sont découplées et réutilisables ainsi.

@@ -50,6 +50,12 @@ L'URL se donne **directement au lancement** (pas besoin de modifier de fichier) 
 .venv/bin/python main.py "https://www.youtube.com/playlist?list=..." --force
 ```
 
+**Interface web (Streamlit)** — pour lancer un traitement et parcourir les résultats sans ligne de commande :
+```bash
+.venv/bin/streamlit run interface_web.py
+```
+Trois onglets : **Lancer** (URL + option de retraitement, logs en direct), **Galerie** (lecture des clips + légendes FR/EN à copier), **Manifeste & registre** (tableaux, téléchargement CSV, vidéos déjà traitées).
+
 Le pipeline traite les vidéos **une par une** (« flux tendu ») : téléchargement → traitement → suppression de la source pour économiser l'espace disque → vidéo suivante.
 
 ### Lancement quotidien : les vidéos déjà traitées sont ignorées
