@@ -1,0 +1,20 @@
+# Dépendances du pipeline de highlights — versions testées (Python 3.14 / macOS Apple Silicon M4).
+
+# Étape 1 — analyse audio (RMS)
+numpy==2.5.0
+scipy==1.18.0
+
+# Téléchargement YouTube (le merge vidéo+audio nécessite ffmpeg, installé hors pip : brew install ffmpeg)
+yt-dlp==2026.6.9
+
+# Étape 2 — extraction de frames pour la validation visuelle
+opencv-python==5.0.0.93
+
+# Étape 4 — appels HTTP vers le serveur Ollama local
+requests==2.34.2
+
+# Étape 2 — LocateAnything-3B via MLX. Apple Silicon (macOS/arm64) UNIQUEMENT :
+# le marqueur ignore ces paquets à l'install sur toute autre plateforme.
+# Modèle téléchargé au 1er run (~3,2 Go), licence NVIDIA recherche/non-commerciale.
+mlx==0.31.2 ; sys_platform == "darwin" and platform_machine == "arm64"
+mlx-vlm==0.6.3 ; sys_platform == "darwin" and platform_machine == "arm64"

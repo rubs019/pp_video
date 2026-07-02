@@ -1,0 +1,13 @@
+# Environnements Python & caches
+.venv
+__pycache__/
+*.pyc
+
+# Données sources & sorties générées
+/combats_bruts
+/highlights_prets
+
+# Outillage / IDE / système
+.claude
+.idea
+.DS_Store
