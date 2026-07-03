@@ -57,7 +57,7 @@ Pour un test isolé d'une étape sans re-télécharger, importer le module cibl�
 `executer_pipeline_complet()` (`src/pipeline.py`, appelé par `main.py`) boucle sur `lister_videos_playlist(URL_SOURCE)` puis, par vidéo : `telecharger_video` → `traiter_video`, qui enchaîne :
 
 1. **`analyser_audio_fast`** (`audio.py`) — extrait le WAV (ffmpeg), calcule la RMS par fenêtres de 0,5 s, détecte les pics par **seuil de percentile auto-adaptatif** (`PERCENTILE_PIC`), regroupe en segments centrés sur le pic avec pré-roll 70 %. Retourne des `(debut, fin)`.
-2. **`verifier_et_cadrer_locate_anything`** (`vision.py`) — échantillonne des frames (OpenCV), les passe à LocateAnything (MLX) pour valider la présence de combattants et calculer un `crop_x` dynamique. Rejette les faux positifs audio. Retourne des `{debut, fin, crop_x}`.
+2. **`verifier_et_cadrer_locate_anything`** (`vision.py`) — échantillonne des frames (OpenCV), les passe à LocateAnything (MLX) avec un **prompt ciblé** (« Detect the fighters ») qui **isole les combattants** (écarte arbitre/coins/public via `_filtrer_combattants`). Calcule un **cadrage adaptatif** (`_calculer_cadrage`) : crop 9:16 serré centré sur les combattants, ou zoom arrière + fond flou s'ils sont écartés. Rejette les faux positifs audio. Retourne des `{debut, fin, cadrage}`.
 3. **`couper_et_recadrer_video`** (`decoupage.py`) — découpe et recadre en 9:16 via ffmpeg, avec un nom de fichier enrichi (voir étape 4). Retourne les chemins produits.
 4. **`enrichir_metadonnees`** (`enrichissement.py`) — 1 appel LLM Ollama qui extrait les métadonnées (combattants, événement, date, poids, méthode) et rédige des légendes bilingues FR/EN pour 4 plateformes. Produit : nom de fichier enrichi, un `.txt` de légendes par clip, et un manifeste global.
 

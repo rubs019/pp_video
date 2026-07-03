@@ -78,16 +78,39 @@ def _echantillonner_frames(video_path, debut, fin, n):
     return chemins, largeur, hauteur
 
 
-def _calculer_crop_x(boites, largeur, hauteur):
-    """Centre le crop 9:16 sur le barycentre horizontal des boxeurs détectés."""
-    largeur_crop = hauteur * RATIO_VERTICAL
-    # Centre X moyen des boîtes, ramené des coords 0-1000 vers les pixels réels.
-    centres = [((x1 + x2) / 2) / 1000 * largeur for x1, y1, x2, y2 in boites]
-    centre_px = sum(centres) / len(centres)
-    crop_x = centre_px - largeur_crop / 2
-    # On borne pour rester dans le cadre d'origine (repli à 0 si source déjà plus étroite que 9:16).
-    crop_x = max(0, min(crop_x, largeur - largeur_crop))
-    return int(crop_x)
+def _filtrer_combattants(boites, largeur, hauteur):
+    """Isole les combattants : bande centrale + plus grandes boîtes (écarte officiels/public aux bords)."""
+    if len(boites) <= 1:
+        return list(boites)
+
+    def aire(b):
+        return (b[2] - b[0]) * (b[3] - b[1])
+
+    aire_max = max(aire(b) for b in boites)
+    # Centre dans la bande centrale (15–85 %) ET taille comparable à la plus grande boîte.
+    centraux = [b for b in boites
+                if 150 <= (b[0] + b[2]) / 2 <= 850 and aire(b) >= 0.30 * aire_max]
+    candidats = centraux or boites
+    return sorted(candidats, key=aire, reverse=True)[:2]  # au plus 2 combattants
+
+
+def _calculer_cadrage(boites, largeur, hauteur):
+    """Spec de cadrage 9:16 : crop serré si les combattants tiennent, sinon zoom arrière + fond flou."""
+    crop_w = int(round(hauteur * RATIO_VERTICAL)) // 2 * 2  # largeur paire (contrainte yuv420)
+    xs1 = [b[0] / 1000 * largeur for b in boites]
+    xs2 = [b[2] / 1000 * largeur for b in boites]
+    minx, maxx = min(xs1), max(xs2)
+    cx = (minx + maxx) / 2
+    besoin = (maxx - minx) * 1.2  # envergure des combattants + 20 % de marge
+    plafond = 2.2 * crop_w        # au-delà : le fond flou dézoomerait trop -> crop serré recentré
+    if besoin <= crop_w + 1 or besoin > plafond:
+        # Tiennent, OU trop écartés : crop serré 9:16 centré sur leur milieu (sujets lisibles).
+        x = int(max(0, min(cx - crop_w / 2, largeur - crop_w)))
+        return {"mode": "crop", "x": x, "w": crop_w, "h": hauteur}
+    # Écartés mais raisonnables -> on élargit à leur envergure puis fond flou pour ramener en 9:16.
+    src_w = int(min(largeur, besoin)) // 2 * 2
+    x0 = int(max(0, min(cx - src_w / 2, largeur - src_w)))
+    return {"mode": "pad", "x": x0, "src_w": src_w, "h": hauteur, "cible_w": crop_w}
 
 
 def verifier_et_cadrer_locate_anything(video_path, candidats):
@@ -102,19 +125,27 @@ def verifier_et_cadrer_locate_anything(video_path, candidats):
             print(f"    Segment {debut}-{fin}s : frames illisibles, ignoré.")
             continue
 
-        # On agrège les détections de toutes les frames échantillonnées du segment.
-        boites = []
+        # Détection par frame ; on retient la frame au meilleur duo de combattants (nombre puis taille).
+        combattants = []
+        total = 0
         for chemin in chemins:
-            boites.extend(_detecter_boites(model, processor, config, chemin))
+            boites = _detecter_boites(model, processor, config, chemin)
             os.remove(chemin)
+            total += len(boites)
+            filtres = _filtrer_combattants(boites, largeur, hauteur)
+            aire = sum((b[2] - b[0]) * (b[3] - b[1]) for b in filtres)
+            aire_ref = sum((b[2] - b[0]) * (b[3] - b[1]) for b in combattants)
+            if (len(filtres), aire) > (len(combattants), aire_ref):
+                combattants = filtres
 
-        if boites:
-            # Action confirmée par la vision : recadrage dynamique sur les boxeurs.
-            crop_x = _calculer_crop_x(boites, largeur, hauteur)
-            clips_valides.append({"debut": debut, "fin": fin, "crop_x": crop_x})
-            print(f"    Segment {debut}-{fin}s validé ({len(boites)} détection(s)), crop_x={crop_x}.")
+        if combattants:
+            # Action confirmée par la vision : cadrage adaptatif centré sur les combattants.
+            cadrage = _calculer_cadrage(combattants, largeur, hauteur)
+            clips_valides.append({"debut": debut, "fin": fin, "cadrage": cadrage})
+            print(f"    Segment {debut}-{fin}s validé ({total} détection(s), "
+                  f"{len(combattants)} combattant(s), cadrage={cadrage['mode']}).")
         else:
-            # Aucun boxeur détecté : probable faux positif audio, on écarte le segment.
+            # Aucune personne détectée : probable faux positif audio, on écarte le segment.
             print(f"    Segment {debut}-{fin}s rejeté (aucune détection visuelle).")
 
     _liberer_memoire_mlx()

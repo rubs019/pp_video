@@ -61,13 +61,13 @@ url ──▶ lister_videos_playlist ──▶ [urls]
 
 ### Étape 2 — Validation visuelle (`vision.py`)
 - Modèle `mlx-community/LocateAnything-3B-4bit` (VLM de grounding) via **mlx-vlm**, chargé **une seule fois** (cache module `_modele_vision`) et réutilisé sur toutes les vidéos ; `_liberer_memoire_mlx()` vide le cache MLX après inférence.
-- Pour chaque segment : `FRAMES_PAR_SEGMENT` (2) frames extraites via **OpenCV** (pas ffmpeg), soumises au modèle avec le prompt `PROMPT_DETECTION`.
+- Pour chaque segment : `FRAMES_PAR_SEGMENT` (2) frames extraites via **OpenCV** (pas ffmpeg), soumises au modèle avec le **prompt ciblé** `PROMPT_DETECTION` (« Detect the fighters ») qui isole les combattants (écarte arbitre/coins/public — mesuré : span 566px vs 1279px avec « all persons »).
 - Le modèle renvoie des boîtes au format `<ref>...</ref><box><x1><y1><x2><y2></box>` en coordonnées **0–1000**, parsées par regex.
-- `_calculer_crop_x` : centre le crop 9:16 sur le barycentre horizontal des boîtes (converti en pixels), borné au cadre.
-- Un segment **sans aucune détection est rejeté** (faux positif audio). **Sortie : `[{debut, fin, crop_x}]`.**
+- `_filtrer_combattants` garde les ≤2 plus grandes boîtes de la bande centrale ; `_calculer_cadrage` en déduit un **cadrage adaptatif** : crop 9:16 serré centré sur leur milieu s'ils tiennent (ou s'ils sont très écartés au-delà d'un plafond → crop recentré lisible plutôt qu'un dézoom illisible), sinon zoom arrière + fond flou pour montrer les deux.
+- Un segment **sans aucune détection est rejeté** (faux positif audio). **Sortie : `[{debut, fin, cadrage}]`.**
 
 ### Étape 3 — Découpe & recadrage (`decoupage.py`)
-- Pour chaque clip : ffmpeg `-ss/-to` + filtre `crop=in_h*9/16:in_h:crop_x:0`, ré-encodage `libx264 -crf 22` + audio **`aac 128k`** (le ré-encodage audio est volontaire : l'audio YouTube est souvent en `opus`, mal supporté en conteneur MP4 par les plateformes).
+- Pour chaque clip : ffmpeg `-ss/-to` + filtre issu du cadrage (`_filtre_cadrage` : crop 9:16 serré, ou crop élargi + fond flou via `split`/`gblur`/`overlay`), ré-encodage `libx264 -crf 22` + audio **`aac 128k`** (le ré-encodage audio est volontaire : l'audio YouTube est souvent en `opus`, mal supporté en conteneur MP4 par les plateformes).
 - Nom de sortie = `{base_nom}_{i}.mp4`, protégé contre l'écrasement par `_chemin_unique` (suffixe `_2`, `_3`…). **Sortie : liste des chemins produits.**
 
 ### Étape 4 — Enrichissement (`enrichissement.py`)

@@ -9,11 +9,11 @@ DOSSIER_SORTIE = "./highlights_prets/"
 # --- Étape 1 : détection audio ---
 PERCENTILE_PIC = 98           # Top (100-X)% des fenêtres = pics candidats (auto-adaptatif à la dynamique)
 MARGE_MIN_DB = 4              # Marge minimale au-dessus du niveau ambiant (anti faux positifs)
-DUREE_HIGHLIGHT = 20          # Durée estimée du clip en secondes
+DUREE_HIGHLIGHT = 30          # Durée estimée du clip en secondes
 
 # --- Étape 2 : validation visuelle ---
 MODELE_VISION = "mlx-community/LocateAnything-3B-4bit"  # VLM de grounding (MLX / Apple Silicon)
-PROMPT_DETECTION = "Detect all persons in the image."  # Requête de grounding LocateAnything
+PROMPT_DETECTION = "Detect the fighters."  # Grounding ciblé : isole les combattants (écarte arbitre/coins/public)
 FRAMES_PAR_SEGMENT = 2        # Frames échantillonnées par candidat (2 = compromis vitesse/robustesse)
 RATIO_VERTICAL = 9 / 16       # Format de sortie vertical (9:16)
 
