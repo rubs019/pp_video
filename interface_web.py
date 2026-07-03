@@ -8,6 +8,7 @@ Manifeste & registre (tableaux). Le pipeline est exécuté via `main.py` en sous
 de sorte que les modèles lourds (MLX, Ollama) restent hors du process Streamlit.
 """
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -36,6 +37,10 @@ def _lire_json(chemin, defaut):
 # --- Barre latérale : état rapide ---
 clips_existants = sorted(Path(DOSSIER_SORTIE).glob("*.mp4"))
 registre = _lire_json(FICHIER_HISTORIQUE, {})
+_manifeste = _lire_json(MANIFESTE_JSON, [])
+# Légende par clip : désormais une légende PAR VIDÉO (partagée par ses clips), via le manifeste.
+legende_par_fichier = {l.get("fichier"): l.get("legende_txt")
+                       for l in _manifeste if isinstance(l, dict)}
 with st.sidebar:
     st.header("État")
     st.metric("Clips générés", len(clips_existants))
@@ -93,11 +98,13 @@ with onglet_galerie:
                                file_name=clip.name, mime="video/mp4",
                                key=f"dl_{clip.name}")
         with col_legende:
-            txt = clip.with_suffix(".txt")
+            # Légende de la vidéo (via manifeste) ; repli : nom de base sans le suffixe _N.
+            nom_txt = legende_par_fichier.get(clip.name)
+            txt = Path(nom_txt) if nom_txt else clip.with_name(re.sub(r"_\d+$", "", clip.stem) + ".txt")
             if txt.exists():
                 st.code(txt.read_text(encoding="utf-8"), language="markdown")
             else:
-                st.caption("Pas de légende associée à ce clip.")
+                st.caption("Pas de légende associée.")
         st.divider()
 
 # --- Onglet 3 : manifeste + registre ---

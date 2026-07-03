@@ -25,7 +25,7 @@ Tout arrive dans le dossier `highlights_prets/`. Pour chaque clip :
 | Sortie | Description |
 |--------|-------------|
 | **Le clip vidéo** | MP4 vertical 9:16, ~20 s, nommé lisiblement. Ex. : `2019-07-06_ufc-239_masvidal-vs-askren_ko_0.mp4` |
-| **Un fichier légende `.txt`** | Même nom que le clip. Contient, pour **4 plateformes** (Instagram Reels, TikTok, YouTube Shorts, X) et en **français + anglais**, un texte accrocheur et des hashtags — prêts à copier-coller. |
+| **Un fichier légende `.txt` par vidéo** | Nommé comme la vidéo (`{base_nom}.txt`), il couvre **tous ses clips** et liste leurs noms. Contient, pour **4 plateformes** (Instagram Reels, TikTok, YouTube Shorts, X) et en **français + anglais**, un texte accrocheur et des hashtags — prêts à copier-coller. |
 | **Le manifeste** (`manifeste.csv` et `manifeste.json`) | Un **tableau récapitulatif de tous les clips** produits : fichier, combattants, vainqueur/perdant, événement, date du combat, catégorie de poids, méthode de victoire, chemin de la légende. |
 
 ### Exemple concret (test réel)

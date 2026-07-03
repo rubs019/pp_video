@@ -4,7 +4,7 @@ import os
 from .audio import analyser_audio_fast
 from .config import URL_SOURCE
 from .decoupage import couper_et_recadrer_video
-from .enrichissement import (construire_base_nom, ecrire_legende_txt,
+from .enrichissement import (construire_base_nom, ecrire_legende_video,
                              enrichir_metadonnees, maj_manifeste)
 from .historique import charger_historique, est_deja_traitee, marquer_traitee
 from .telechargement import lister_videos_playlist, telecharger_video
@@ -26,10 +26,9 @@ def traiter_video(video_path, info):
     meta = enrichir_metadonnees(info)
     base_nom = construire_base_nom(meta, info.get("id"))
     chemins = couper_et_recadrer_video(video_path, clips, base_nom=base_nom)
-    for i, chemin in enumerate(chemins):
-        ecrire_legende_txt(chemin, meta, i)
-    total = maj_manifeste(chemins, meta, info)
-    print(f" -> {len(chemins)} clip(s) enrichis + légendes. Manifeste : {total} entrée(s).")
+    legende_txt = ecrire_legende_video(base_nom, chemins, meta)  # un seul .txt par vidéo
+    total = maj_manifeste(chemins, meta, info, legende_txt)
+    print(f" -> {len(chemins)} clip(s) + 1 légende vidéo. Manifeste : {total} entrée(s).")
     return len(chemins)
 
 

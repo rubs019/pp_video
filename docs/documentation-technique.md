@@ -78,7 +78,7 @@ url ──▶ lister_videos_playlist ──▶ [urls]
 - **Non bloquant** : `enrichir_metadonnees` ne lève jamais ; toute panne (Ollama down, JSON invalide) → repli `_enrichi=False` avec valeurs `inconnu`.
 - **Sorties** :
   - `construire_base_nom` → `AAAA-MM-JJ_evenement_vainqueur-vs-perdant_methode` (slugifié, ASCII, minuscules ; repli sur l'id YouTube si non enrichi).
-  - `ecrire_legende_txt` → un `.txt` par clip : 4 plateformes × {fr, en} + hashtags.
+  - `ecrire_legende_video` → un `.txt` **par vidéo** (`{base_nom}.txt`, en-tête listant les clips + 4 plateformes × {fr, en} + hashtags). Les légendes étant au niveau vidéo, un seul fichier au lieu d'un doublon par clip.
   - `maj_manifeste` → **`manifeste.json` = source de vérité** (upsert dédupliqué par `chemin`) ; **`manifeste.csv` régénéré intégralement** depuis le JSON à chaque écriture (cohérence + dédup garanties, même après plusieurs runs).
 
 ## 5. Orchestration & résilience (`pipeline.py`)

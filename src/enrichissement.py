@@ -11,9 +11,9 @@ import unicodedata
 
 import requests
 
-from .config import (LANGUES_LEGENDES, MANIFESTE_CSV, MANIFESTE_JSON, MODELE_LLM,
-                     NOM_FICHIER_MAX, OLLAMA_NUM_CTX, OLLAMA_TIMEOUT, OLLAMA_URL,
-                     PLATEFORMES, VALEUR_INCONNUE)
+from .config import (DOSSIER_SORTIE, LANGUES_LEGENDES, MANIFESTE_CSV, MANIFESTE_JSON,
+                     MODELE_LLM, NOM_FICHIER_MAX, OLLAMA_NUM_CTX, OLLAMA_TIMEOUT,
+                     OLLAMA_URL, PLATEFORMES, VALEUR_INCONNUE)
 
 
 def _appeler_ollama(prompt, schema):
@@ -191,14 +191,18 @@ def construire_base_nom(meta, youtube_id):
     return "_".join(m for m in morceaux if m) or youtube_id or "highlight"
 
 
-def ecrire_legende_txt(chemin_clip, meta, index):
-    """Écrit un .txt prêt à publier (4 plateformes × FR/EN) à côté du clip."""
-    chemin_txt = os.path.splitext(chemin_clip)[0] + ".txt"
+def ecrire_legende_video(base_nom, chemins_clips, meta):
+    """Écrit UN .txt par vidéo ({base_nom}.txt) : liste des clips + légendes 4 plateformes × FR/EN.
+
+    Les légendes sont au niveau vidéo (communes à tous les clips) : un seul fichier, pas de doublon.
+    """
+    chemin_txt = os.path.join(DOSSIER_SORTIE, f"{base_nom}.txt")
     legendes = meta.get("legendes") or {}
     entete = (f"# {meta.get('vainqueur', VALEUR_INCONNUE)} vs {meta.get('perdant', VALEUR_INCONNUE)}"
               f" — {meta.get('evenement', VALEUR_INCONNUE)} "
               f"({meta.get('date_combat') or 'date inconnue'})")
-    lignes = [entete, f"# Clip {index} — {os.path.basename(chemin_clip)}", ""]
+    clips = ", ".join(os.path.basename(c) for c in chemins_clips) or "(aucun)"
+    lignes = [entete, f"# Clips : {clips}", ""]
 
     if not meta.get("_enrichi") or not legendes:
         lignes.append("(Enrichissement indisponible — légendes non générées.)")
@@ -225,14 +229,14 @@ def ecrire_legende_txt(chemin_clip, meta, index):
     return chemin_txt
 
 
-def _lignes_manifeste(clips_chemins, meta, info):
-    """Une ligne de manifeste par clip : métadonnées communes + chemins propres au clip."""
+def _lignes_manifeste(clips_chemins, meta, info, legende_txt):
+    """Une ligne de manifeste par clip ; la légende est celle de la vidéo (commune aux clips)."""
     lignes = []
     for i, chemin in enumerate(clips_chemins):
         lignes.append({
             "chemin": chemin,
             "fichier": os.path.basename(chemin),
-            "legende_txt": os.path.splitext(chemin)[0] + ".txt",
+            "legende_txt": legende_txt,
             "video_id": info.get("id", ""),
             "url_source": info.get("webpage_url", ""),
             "combattants": ", ".join(meta.get("combattants") or []),
@@ -249,9 +253,9 @@ def _lignes_manifeste(clips_chemins, meta, info):
     return lignes
 
 
-def maj_manifeste(clips_chemins, meta, info):
+def maj_manifeste(clips_chemins, meta, info, legende_txt):
     """JSON = source de vérité (upsert dédupliqué par 'chemin') ; CSV régénéré intégralement."""
-    nouvelles_lignes = _lignes_manifeste(clips_chemins, meta, info)
+    nouvelles_lignes = _lignes_manifeste(clips_chemins, meta, info, legende_txt)
     lignes = []
     if os.path.exists(MANIFESTE_JSON):
         try:
