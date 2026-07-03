@@ -70,7 +70,8 @@ Le pipeline tient un **registre** (`highlights_prets/videos_traitees.json`) des 
 
 | Réglage | Effet |
 |---------|-------|
-| `DUREE_HIGHLIGHT` | Durée visée des clips (défaut 20 s). |
+| `DUREE_HIGHLIGHT` | Durée visée des clips (défaut 30 s). |
+| `RECADRAGE_DYNAMIQUE` | `True` = le cadre **suit l'action** (panoramique fluide) ; `False` (défaut) = cadrage figé, plus rapide. |
 | `PERCENTILE_PIC` / `MARGE_MIN_DB` | Sensibilité de la détection audio (plus le percentile est haut, moins on retient de moments). |
 | `PLATEFORMES` | Liste des plateformes pour lesquelles générer des légendes. |
 | `LANGUES_LEGENDES` | Langues des légendes (défaut : français + anglais). |

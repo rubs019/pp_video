@@ -24,6 +24,9 @@ def _filtre_cadrage(cadrage):
       (cible_w × h) avec un fond flou -> les deux combattants restent visibles.
     """
     h = cadrage["h"]
+    if cadrage["mode"] == "pan":
+        # Panoramique : x est une expression de t (crop qui glisse). setpts garantit t=0 en tête.
+        return "-vf", f"setpts=PTS-STARTPTS,crop={cadrage['w']}:{h}:'{cadrage['expr']}':0"
     if cadrage["mode"] == "crop":
         return "-vf", f"crop={cadrage['w']}:{h}:{cadrage['x']}:0"
     cw = cadrage["cible_w"]
@@ -43,10 +46,15 @@ def couper_et_recadrer_video(video_path, clips, base_nom=None):
     for i, clip in enumerate(clips):
         # _chemin_unique évite d'écraser un clip d'une autre vidéo au même nom enrichi.
         nom_sortie = _chemin_unique(os.path.join(DOSSIER_SORTIE, f"{base}_{i}.mp4"))
-        flag, valeur = _filtre_cadrage(clip["cadrage"])  # crop serré ou zoom + fond flou
+        flag, valeur = _filtre_cadrage(clip["cadrage"])  # crop serré, fond flou, ou panoramique
+        if clip["cadrage"]["mode"] == "pan":
+            # Seek en ENTRÉE -> PTS remis à 0, indispensable pour l'expression x(t) du pano.
+            seek = ["-ss", str(clip["debut"]), "-i", video_path,
+                    "-t", str(clip["fin"] - clip["debut"])]
+        else:
+            seek = ["-i", video_path, "-ss", str(clip["debut"]), "-to", str(clip["fin"])]
         lancer_ffmpeg([
-            "-i", video_path, "-ss", str(clip["debut"]), "-to", str(clip["fin"]),
-            flag, valeur,
+            *seek, flag, valeur,
             "-c:v", "libx264", "-crf", "22", "-c:a", "aac", "-b:a", "128k",
             nom_sortie, "-y", "-loglevel", "error",
         ])

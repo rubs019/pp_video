@@ -65,9 +65,11 @@ url ──▶ lister_videos_playlist ──▶ [urls]
 - Le modèle renvoie des boîtes au format `<ref>...</ref><box><x1><y1><x2><y2></box>` en coordonnées **0–1000**, parsées par regex.
 - `_filtrer_combattants` garde les ≤2 plus grandes boîtes de la bande centrale ; `_calculer_cadrage` en déduit un **cadrage adaptatif** : crop 9:16 serré centré sur leur milieu s'ils tiennent (ou s'ils sont très écartés au-delà d'un plafond → crop recentré lisible plutôt qu'un dézoom illisible), sinon zoom arrière + fond flou pour montrer les deux.
 - Un segment **sans aucune détection est rejeté** (faux positif audio). **Sortie : `[{debut, fin, cadrage}]`.**
+- **Recadrage dynamique** (option `RECADRAGE_DYNAMIQUE`) : au lieu d'un cadrage figé, on échantillonne toutes les `INTERVALLE_SUIVI` s, on suit le centre des combattants, on **lisse** la trajectoire (`_lisser_trajectoire` : moyenne glissante + limite de vitesse anti à-coups) et on génère une **expression `x(t)`** (`_construire_expr_pan`, interpolation linéaire par morceaux + offset pair) → cadrage `{"mode":"pan","expr":…}`. Repli sur le cadrage statique si les combattants sont trop écartés (`fit < SEUIL_PAN_FIT`).
 
 ### Étape 3 — Découpe & recadrage (`decoupage.py`)
-- Pour chaque clip : ffmpeg `-ss/-to` + filtre issu du cadrage (`_filtre_cadrage` : crop 9:16 serré, ou crop élargi + fond flou via `split`/`gblur`/`overlay`), ré-encodage `libx264 -crf 22` + audio **`aac 128k`** (le ré-encodage audio est volontaire : l'audio YouTube est souvent en `opus`, mal supporté en conteneur MP4 par les plateformes).
+- Pour chaque clip : ffmpeg + filtre issu du cadrage (`_filtre_cadrage` : crop 9:16 serré ; crop élargi + fond flou via `split`/`gblur`/`overlay` ; ou **panoramique** `setpts=PTS-STARTPTS,crop=w:h:'x(t)':0`), ré-encodage `libx264 -crf 22` + audio **`aac 128k`** (ré-encodage audio volontaire : l'audio YouTube est souvent en `opus`, mal supporté en MP4).
+- **Seek selon le mode** : `pan` utilise un **seek en entrée** (`-ss debut -i video -t duree`) pour que `t` parte de 0 (indispensable à l'expression `x(t)`) ; `crop`/`pad` gardent le **trim en sortie** (`-i video -ss debut -to fin`), frame-exact.
 - Nom de sortie = `{base_nom}_{i}.mp4`, protégé contre l'écrasement par `_chemin_unique` (suffixe `_2`, `_3`…). **Sortie : liste des chemins produits.**
 
 ### Étape 4 — Enrichissement (`enrichissement.py`)
