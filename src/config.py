@@ -13,8 +13,14 @@ MARGE_MIN_DB = 4              # Marge minimale au-dessus du niveau ambiant (anti
 DUREE_HIGHLIGHT = 30          # Durée estimée du clip en secondes
 
 # --- Étape 2 : validation visuelle ---
-MODELE_VISION = "mlx-community/LocateAnything-3B-4bit"  # VLM de grounding (MLX / Apple Silicon)
-PROMPT_DETECTION = "Detect the fighters."  # Grounding ciblé : isole les combattants (écarte arbitre/coins/public)
+MODELE_VISION = "mlx-community/Qwen3-VL-8B-Instruct-4bit"  # VLM Apache 2.0 (MLX / Apple Silicon) ; Mac 16 Go : 4B-Instruct-4bit
+PROMPT_DETECTION = (
+    "Locate the fighters actively fighting in the cage or ring. "
+    "Exclude referee, coaches, cameras, and crowd. "
+    "If no active fight is shown (intro, walkout, interview, decision, crowd), return []. "
+    "Output ONLY compact JSON: [{\"bbox_2d\": [x1, y1, x2, y2], \"label\": \"f\"}] (coords 0-1000)."
+)
+VISION_LARGEUR_MAX = 640      # Largeur max des frames envoyées au VLM (coords 0-1000 indépendantes de la taille)
 FRAMES_PAR_SEGMENT = 2        # Frames échantillonnées par candidat (2 = compromis vitesse/robustesse)
 RATIO_VERTICAL = 9 / 16       # Format de sortie vertical (9:16)
 RECADRAGE_DYNAMIQUE = True   # True -> panoramique fluide (suit l'action) ; False -> cadrage statique

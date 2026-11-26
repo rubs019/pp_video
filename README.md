@@ -41,6 +41,6 @@ docs/              Documentation fonctionnelle et technique
 requirements.txt   Dépendances Python épinglées
 ```
 
-## ⚠️ Licence
+## Licence
 
-Le modèle de validation visuelle **LocateAnything-3B** est sous **licence NVIDIA recherche / non-commerciale**. Toute diffusion commerciale doit d'abord être validée juridiquement — voir la [documentation technique](docs/documentation-technique.md#9-points-dextension) pour remplacer le modèle.
+Le modèle de validation visuelle **Qwen3-VL-8B-Instruct-4bit** (`mlx-community/Qwen3-VL-8B-Instruct-4bit`) est sous **licence Apache 2.0**, autorisant un usage commercial. Attention toutefois aux **droits d'auteur des vidéos sources** : en usage commercial, n'utilisez que des vidéos dont vous détenez les droits.

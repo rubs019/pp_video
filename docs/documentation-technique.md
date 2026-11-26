@@ -15,7 +15,7 @@ src/
 ├── ffmpeg_utils.py        resoudre_ffmpeg(), lancer_ffmpeg()
 ├── telechargement.py      lister_videos_playlist(), telecharger_video()
 ├── audio.py               Étape 1 — analyser_audio_fast()
-├── vision.py              Étape 2 — verifier_et_cadrer_locate_anything()
+├── vision.py              Étape 2 — verifier_et_cadrer_vision()
 ├── decoupage.py           Étape 3 — couper_et_recadrer_video()
 ├── enrichissement.py      Étape 4 — enrichir_metadonnees(), nommage, légendes, manifeste
 ├── historique.py          Registre des vidéos déjà traitées (videos_traitees.json)
@@ -36,7 +36,7 @@ url ──▶ lister_videos_playlist ──▶ [urls]
         analyser_audio_fast ──▶ [(debut, fin), ...]      segments candidats (secondes)
                                      │
                                      ▼
-   verifier_et_cadrer_locate_anything ──▶ [{debut, fin, crop_x}, ...]
+   verifier_et_cadrer_vision ──▶ [{debut, fin, cadrage}, ...]
                                      │
                                      ▼
         enrichir_metadonnees(info) ──▶ meta (dict)       1 appel LLM / vidéo
@@ -60,11 +60,11 @@ url ──▶ lister_videos_playlist ──▶ [urls]
 7. Fusion des segments qui se chevauchent. **Sortie : `[(debut, fin)]` en secondes.**
 
 ### Étape 2 — Validation visuelle (`vision.py`)
-- Modèle `mlx-community/LocateAnything-3B-4bit` (VLM de grounding) via **mlx-vlm**, chargé **une seule fois** (cache module `_modele_vision`) et réutilisé sur toutes les vidéos ; `_liberer_memoire_mlx()` vide le cache MLX après inférence.
-- Pour chaque segment : `FRAMES_PAR_SEGMENT` (2) frames extraites via **OpenCV** (pas ffmpeg), soumises au modèle avec le **prompt ciblé** `PROMPT_DETECTION` (« Detect the fighters ») qui isole les combattants (écarte arbitre/coins/public — mesuré : span 566px vs 1279px avec « all persons »).
-- Le modèle renvoie des boîtes au format `<ref>...</ref><box><x1><y1><x2><y2></box>` en coordonnées **0–1000**, parsées par regex.
-- `_filtrer_combattants` garde les ≤2 plus grandes boîtes de la bande centrale ; `_calculer_cadrage` en déduit un **cadrage adaptatif** : crop 9:16 serré centré sur leur milieu s'ils tiennent (ou s'ils sont très écartés au-delà d'un plafond → crop recentré lisible plutôt qu'un dézoom illisible), sinon zoom arrière + fond flou pour montrer les deux.
-- Un segment **sans aucune détection est rejeté** (faux positif audio). **Sortie : `[{debut, fin, cadrage}]`.**
+- Modèle `mlx-community/Qwen3-VL-8B-Instruct-4bit` (VLM Apache 2.0, usage commercial autorisé) via **mlx-vlm**, chargé **une seule fois** (cache module `_modele_vision`) et réutilisé sur toutes les vidéos ; `_liberer_memoire_mlx()` vide le cache MLX après inférence. Sur Mac 16 Go, basculer `MODELE_VISION` sur `mlx-community/Qwen3-VL-4B-Instruct-4bit`.
+- Pour chaque segment : les frames extraites via **OpenCV** sont redimensionnées à `VISION_LARGEUR_MAX` (`640` px) avant envoi au VLM (les coordonnées `0–1000` étant relatives, la résolution réelle de la vidéo est conservée pour FFmpeg), puis nettoyées dans un bloc `try/finally`.
+- Le modèle est guidé par `PROMPT_DETECTION` pour localiser uniquement les **combattants en action** (exclusion arbitre/coachs/public et rejet des scènes hors combat : intro, walkout, interview, décision) et renvoie un JSON compact `[{"bbox_2d": [x1, y1, x2, y2], "label": "f"}]` en coordonnées **0–1000**, parsé par `_parser_boites` (JSON strict avec repli regex).
+- `_filtrer_combattants` garde les ≤2 plus grandes boîtes dans la bande utile (5–95 %) ; `_calculer_cadrage` en déduit un **cadrage adaptatif** : crop 9:16 serré centré sur leur milieu s'ils tiennent (ou s'ils sont très écartés au-delà d'un plafond → crop recentré lisible plutôt qu'un dézoom illisible), sinon zoom arrière + fond flou pour montrer les deux.
+- Un segment **sans aucune détection est rejeté** (faux positif audio ou scène hors combat). **Sortie : `[{debut, fin, cadrage}]`.**
 - **Recadrage dynamique** (option `RECADRAGE_DYNAMIQUE`) : au lieu d'un cadrage figé, on échantillonne toutes les `INTERVALLE_SUIVI` s, on suit le centre des combattants, on **lisse** la trajectoire (`_lisser_trajectoire` : moyenne glissante + limite de vitesse anti à-coups) et on génère une **expression `x(t)`** (`_construire_expr_pan`, interpolation linéaire par morceaux + offset pair) → cadrage `{"mode":"pan","expr":…}`. Repli sur le cadrage statique si les combattants sont trop écartés (`fit < SEUIL_PAN_FIT`).
 
 ### Étape 3 — Découpe & recadrage (`decoupage.py`)
@@ -105,7 +105,7 @@ Déclarées dans `requirements.txt` (versions testées) :
 - `numpy`, `scipy` (audio), `yt-dlp[default]` (téléchargement + `yt-dlp-ejs`, volontairement non figé car YouTube évolue fréquemment), `opencv-python` (frames), `requests` (Ollama), `streamlit` (interface web).
 - `mlx`, `mlx-vlm` avec **marqueur de plateforme** `sys_platform=="darwin" and platform_machine=="arm64"` (ignorés hors Apple Silicon).
 - **Hors pip** : `ffmpeg` et `deno` (`brew install ffmpeg deno`), et le serveur **Ollama** + un modèle instruct.
-- Le modèle vision (~3,2 Go) est téléchargé au 1er run par mlx-vlm.
+- Le modèle vision `Qwen3-VL-8B-Instruct-4bit` (~5,8 Go, licence Apache 2.0 ; pic ~6,2 Go RAM sur M5 24 Go) est téléchargé au 1er run par mlx-vlm.
 
 ## 8. Décisions de conception (résumé)
 
@@ -124,7 +124,7 @@ Déclarées dans `requirements.txt` (versions testées) :
 
 - **Changer de modèle de légendes** : `MODELE_LLM` dans `config.py` (tout modèle Ollama instruct).
 - **Ajouter/retirer une plateforme ou une langue** : `PLATEFORMES` / `LANGUES_LEGENDES` (+ ajuster le schéma dans `_schema_enrichissement` si nouvelle plateforme).
-- **Remplacer la validation visuelle** (contrainte de licence LocateAnything) : réécrire `vision.py` en conservant la signature `verifier_et_cadrer_locate_anything(video_path, candidats) -> [{debut, fin, crop_x}]`. Le reste du pipeline est inchangé.
+- **Remplacer le modèle de validation visuelle** : ajuster `MODELE_VISION` dans `config.py` (tout VLM compatible `mlx-vlm` sortant `bbox_2d`), ou réécrire `vision.py` en conservant la signature `verifier_et_cadrer_vision(video_path, candidats) -> [{debut, fin, cadrage}]`. Le reste du pipeline est inchangé.
 - **Cibler un autre sport / type de contenu** : ajuster `PROMPT_DETECTION` (grounding) et le prompt d'enrichissement (`_construire_prompt_enrichissement`).
 
 ## 10. Vérification

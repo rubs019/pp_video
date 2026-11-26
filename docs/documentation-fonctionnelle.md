@@ -75,6 +75,8 @@ Le pipeline tient un **registre** (`highlights_prets/videos_traitees.json`) des 
 | `PERCENTILE_PIC` / `MARGE_MIN_DB` | Sensibilité de la détection audio (plus le percentile est haut, moins on retient de moments). |
 | `PLATEFORMES` | Liste des plateformes pour lesquelles générer des légendes. |
 | `LANGUES_LEGENDES` | Langues des légendes (défaut : français + anglais). |
+| `MODELE_VISION` | Modèle VLM (MLX) pour la validation visuelle (`Qwen3-VL-8B-Instruct-4bit` par défaut, ou `4B-Instruct-4bit` sur Mac 16 Go). |
+| `VISION_LARGEUR_MAX` | Largeur max des frames envoyées au VLM (défaut `640` px) pour accélérer l'inférence sans perte de cadrage. |
 | `MODELE_LLM` | Modèle Ollama utilisé pour les légendes. Un modèle plus léger (ex. `mistral:7b`) = plus rapide. |
 | `FICHIER_COOKIES` | Chemin vers le fichier `cookies.txt` (défaut `./cookies.txt`), utilisé automatiquement par `yt-dlp` s'il existe. |
 
@@ -104,6 +106,7 @@ Pour le générer depuis ton navigateur connecté (remplacer `brave` par `chrome
 
 Alternativement, tu peux exporter tes cookies au format Netscape avec une extension dédiée (ex. *Get cookies.txt LOCALLY*) et enregistrer le fichier à `./cookies.txt`.
 
-## 8. Point juridique — à trancher avant diffusion
+## 8. Point juridique — licence modèle & droits vidéo
 
-⚠️ Le modèle d'IA visuelle utilisé (**LocateAnything-3B**) est sous **licence NVIDIA recherche / non-commerciale**. Produire des highlights destinés à la diffusion est un usage commercial. **Tant que ce point n'est pas validé juridiquement, le projet doit rester un prototype interne.** Voir la documentation technique pour l'alternative (remplacer le modèle de validation visuelle).
+- **Modèles IA** : le modèle de validation visuelle (**Qwen3-VL-8B-Instruct-4bit**) est sous **licence Apache 2.0** (usage commercial autorisé).
+- **Droits sur les vidéos sources** : pour toute exploitation commerciale (prestation client, diffusion monétisée), assurez-vous de traiter uniquement des vidéos dont vous ou votre client détenez les droits d'exploitation.

@@ -1,5 +1,6 @@
-"""Étape 2 : validation visuelle via LocateAnything-3B (MLX) et calcul du recadrage dynamique."""
+"""Étape 2 : validation visuelle via Qwen3-VL (MLX, Apache 2.0) et calcul du recadrage dynamique."""
 import gc
+import json
 import os
 import re
 
@@ -7,14 +8,14 @@ import cv2
 
 from .config import (DOSSIER_BRUT, FRAMES_PAR_SEGMENT, INTERVALLE_SUIVI, LISSAGE_FENETRE,
                      MODELE_VISION, PAN_VITESSE_MAX, PROMPT_DETECTION, RATIO_VERTICAL,
-                     RECADRAGE_DYNAMIQUE, SEUIL_PAN_FIT)
+                     RECADRAGE_DYNAMIQUE, SEUIL_PAN_FIT, VISION_LARGEUR_MAX)
 
-# --- Modèle de vision chargé une seule fois (coûteux : ~3 Go en mémoire unifiée) ---
+# --- Modèle de vision chargé une seule fois (coûteux : ~5,5 Go en mémoire unifiée) ---
 _modele_vision = None
 
 
 def _charger_modele_vision():
-    """Charge LocateAnything-3B (MLX) et le met en cache pour tout le run."""
+    """Charge le VLM de vision (MLX) et le met en cache pour tout le run."""
     global _modele_vision
     if _modele_vision is None:
         try:
@@ -22,8 +23,7 @@ def _charger_modele_vision():
             from mlx_vlm.utils import load_config
         except ImportError as e:
             raise RuntimeError(
-                "mlx-vlm est requis pour l'étape 2 : pip install mlx-vlm "
-                "(le support LocateAnything peut nécessiter une branche dédiée)."
+                "mlx-vlm est requis pour l'étape 2 : pip install mlx-vlm (Apple Silicon uniquement)."
             ) from e
         print(f"    Chargement de {MODELE_VISION} (une seule fois, patience)...")
         model, processor = load(MODELE_VISION)
@@ -33,13 +33,57 @@ def _charger_modele_vision():
 
 
 def _liberer_memoire_mlx():
-    """Vide la mémoire unifiée du Mac (M4) après inférence."""
+    """Vide la mémoire unifiée Apple Silicon après inférence."""
     gc.collect()
     try:
         import mlx.core as mx
         mx.clear_cache()
     except Exception:
         pass
+
+
+def _parser_boites(texte):
+    """Extrait les boîtes [(x1, y1, x2, y2)] en coords 0-1000 depuis une sortie VLM (JSON bbox_2d)."""
+    propre = re.sub(r"<think>.*?</think>", "", texte or "", flags=re.DOTALL)
+    propre = re.sub(r"```(?:json)?|```", "", propre).strip()
+
+    def _valider(coords):
+        x1, y1, x2, y2 = [int(round(float(v))) for v in coords]
+        x1, y1 = max(0, min(1000, x1)), max(0, min(1000, y1))
+        x2, y2 = max(0, min(1000, x2)), max(0, min(1000, y2))
+        return (x1, y1, x2, y2) if (x2 > x1 and y2 > y1) else None
+
+    # 1. JSON natif Qwen3-VL : [{"bbox_2d": [x1, y1, x2, y2], "label": "..."}]
+    debut, fin = propre.find("["), propre.rfind("]")
+    if debut != -1 and fin >= debut:
+        try:
+            data = json.loads(propre[debut:fin + 1])
+            if isinstance(data, list):
+                boites = []
+                for item in data:
+                    if isinstance(item, dict) and isinstance(item.get("bbox_2d"), list) and len(item["bbox_2d"]) == 4:
+                        b = _valider(item["bbox_2d"])
+                        if b:
+                            boites.append(b)
+                return boites
+        except (json.JSONDecodeError, ValueError, TypeError):
+            pass
+
+    # 2. Repli regex si JSON légèrement malformé (ex. crochet fermant oublié)
+    boites = []
+    for m in re.findall(r'"bbox_2d"\s*:\s*\[\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)', propre):
+        b = _valider(m)
+        if b:
+            boites.append(b)
+    if boites:
+        return boites
+
+    # 3. Compatibilité balises <box><x1><y1><x2><y2></box>
+    for m in re.findall(r"<box><(\d+)><(\d+)><(\d+)><(\d+)></box>", propre):
+        b = _valider(m)
+        if b:
+            boites.append(b)
+    return boites
 
 
 def _detecter_boites(model, processor, config, chemin_image):
@@ -50,12 +94,30 @@ def _detecter_boites(model, processor, config, chemin_image):
     prompt = apply_chat_template(processor, config, PROMPT_DETECTION, num_images=1)
     sortie = generate(
         model, processor, prompt, [chemin_image],
-        max_tokens=256, temperature=0.0, verbose=False,
+        max_tokens=160, temperature=0.0, verbose=False,
     )
     texte = getattr(sortie, "text", sortie)  # certaines versions renvoient un objet
-    # Format LocateAnything : <ref>...</ref><box><x1><y1><x2><y2></box>, coords 0-1000
-    return [tuple(map(int, b)) for b in re.findall(
-        r"<box><(\d+)><(\d+)><(\d+)><(\d+)></box>", texte)]
+    return _parser_boites(texte)
+
+
+def _sauver_frame_vlm(frame, chemin):
+    """Redimensionne la frame à VISION_LARGEUR_MAX avant écriture (accélère l'encodage VLM)."""
+    h, w = frame.shape[:2]
+    if VISION_LARGEUR_MAX and w > VISION_LARGEUR_MAX:
+        echelle = VISION_LARGEUR_MAX / w
+        frame = cv2.resize(frame, (VISION_LARGEUR_MAX, int(round(h * echelle))),
+                           interpolation=cv2.INTER_AREA)
+    cv2.imwrite(chemin, frame)
+
+
+def _supprimer_fichiers(chemins):
+    """Supprime silencieusement une liste de fichiers temporaires s'ils existent encore."""
+    for chemin in chemins:
+        if chemin and os.path.exists(chemin):
+            try:
+                os.remove(chemin)
+            except OSError:
+                pass
 
 
 def _echantillonner_frames(video_path, debut, fin, n):
@@ -73,14 +135,14 @@ def _echantillonner_frames(video_path, debut, fin, n):
         if not ok:
             continue
         chemin = os.path.join(DOSSIER_BRUT, f"_frame_{int(instant)}_{k}.jpg")
-        cv2.imwrite(chemin, frame)
+        _sauver_frame_vlm(frame, chemin)
         chemins.append(chemin)
     capture.release()
     return chemins, largeur, hauteur
 
 
 def _filtrer_combattants(boites, largeur, hauteur):
-    """Isole les combattants : bande centrale + plus grandes boîtes (écarte officiels/public aux bords)."""
+    """Isole les combattants : bande utile + plus grandes boîtes (au plus 2 combattants)."""
     if len(boites) <= 1:
         return list(boites)
 
@@ -88,9 +150,9 @@ def _filtrer_combattants(boites, largeur, hauteur):
         return (b[2] - b[0]) * (b[3] - b[1])
 
     aire_max = max(aire(b) for b in boites)
-    # Centre dans la bande centrale (15–85 %) ET taille comparable à la plus grande boîte.
+    # Qwen3-VL exclut déjà public/arbitre : bande large (5–95 %) pour garder un combattant près du bord.
     centraux = [b for b in boites
-                if 150 <= (b[0] + b[2]) / 2 <= 850 and aire(b) >= 0.30 * aire_max]
+                if 50 <= (b[0] + b[2]) / 2 <= 950 and aire(b) >= 0.30 * aire_max]
     candidats = centraux or boites
     return sorted(candidats, key=aire, reverse=True)[:2]  # au plus 2 combattants
 
@@ -130,7 +192,7 @@ def _echantillonner_trajectoire(video_path, debut, fin, n):
         if not ok:
             continue
         chemin = os.path.join(DOSSIER_BRUT, f"_traj_{int(instant)}_{k}.jpg")
-        cv2.imwrite(chemin, frame)
+        _sauver_frame_vlm(frame, chemin)
         points.append((chemin, instant - debut))
     capture.release()
     return points, largeur, hauteur
@@ -200,15 +262,17 @@ def _cadrage_statique(model, processor, config, video_path, debut, fin):
     if not chemins:
         return None, "frames illisibles"
     combattants, total = [], 0
-    for chemin in chemins:
-        boites = _detecter_boites(model, processor, config, chemin)
-        os.remove(chemin)
-        total += len(boites)
-        filtres = _filtrer_combattants(boites, largeur, hauteur)
-        aire = sum((b[2] - b[0]) * (b[3] - b[1]) for b in filtres)
-        aire_ref = sum((b[2] - b[0]) * (b[3] - b[1]) for b in combattants)
-        if (len(filtres), aire) > (len(combattants), aire_ref):
-            combattants = filtres
+    try:
+        for chemin in chemins:
+            boites = _detecter_boites(model, processor, config, chemin)
+            total += len(boites)
+            filtres = _filtrer_combattants(boites, largeur, hauteur)
+            aire = sum((b[2] - b[0]) * (b[3] - b[1]) for b in filtres)
+            aire_ref = sum((b[2] - b[0]) * (b[3] - b[1]) for b in combattants)
+            if (len(filtres), aire) > (len(combattants), aire_ref):
+                combattants = filtres
+    finally:
+        _supprimer_fichiers(chemins)
     if not combattants:
         return None, "aucune détection visuelle"
     cadrage = _calculer_cadrage(combattants, largeur, hauteur)
@@ -226,21 +290,23 @@ def _cadrage_pan(model, processor, config, video_path, debut, fin):
 
     t_list, cx_raw, spans = [], [], []
     meilleur, meilleur_score = [], (-1, -1)
-    for chemin, t_rel in points:
-        boites = _detecter_boites(model, processor, config, chemin)
-        os.remove(chemin)
-        filtres = _filtrer_combattants(boites, largeur, hauteur)
-        t_list.append(t_rel)
-        if filtres:
-            cx, span = _centre_span(filtres, largeur)
-            cx_raw.append(cx)
-            spans.append(span)
-            aire = sum((b[2] - b[0]) * (b[3] - b[1]) for b in filtres)
-            if (len(filtres), aire) > meilleur_score:
-                meilleur_score, meilleur = (len(filtres), aire), filtres
-        else:
-            cx_raw.append(None)
-            spans.append(None)
+    try:
+        for chemin, t_rel in points:
+            boites = _detecter_boites(model, processor, config, chemin)
+            filtres = _filtrer_combattants(boites, largeur, hauteur)
+            t_list.append(t_rel)
+            if filtres:
+                cx, span = _centre_span(filtres, largeur)
+                cx_raw.append(cx)
+                spans.append(span)
+                aire = sum((b[2] - b[0]) * (b[3] - b[1]) for b in filtres)
+                if (len(filtres), aire) > meilleur_score:
+                    meilleur_score, meilleur = (len(filtres), aire), filtres
+            else:
+                cx_raw.append(None)
+                spans.append(None)
+    finally:
+        _supprimer_fichiers([chemin for chemin, _ in points])
 
     if not any(c is not None for c in cx_raw):
         return None, "aucune détection visuelle"
@@ -258,9 +324,10 @@ def _cadrage_pan(model, processor, config, video_path, debut, fin):
     return cadrage, f"trop écartés (fit={fit:.0%}), repli cadrage={cadrage['mode']}"
 
 
-def verifier_et_cadrer_locate_anything(video_path, candidats):
+def verifier_et_cadrer_vision(video_path, candidats):
     mode = "panoramique" if RECADRAGE_DYNAMIQUE else "statique"
-    print(f"[{os.path.basename(video_path)}] Étape 2 : Validation visuelle (LocateAnything-3B, {mode})...")
+    nom_modele = MODELE_VISION.split("/")[-1]
+    print(f"[{os.path.basename(video_path)}] Étape 2 : Validation visuelle ({nom_modele}, {mode})...")
     model, processor, config = _charger_modele_vision()
     clips_valides = []
 
@@ -278,3 +345,7 @@ def verifier_et_cadrer_locate_anything(video_path, candidats):
     _liberer_memoire_mlx()
     print(f" -> {len(clips_valides)}/{len(candidats)} segment(s) validé(s) visuellement.")
     return clips_valides
+
+
+# Alias de rétrocompatibilité
+verifier_et_cadrer_locate_anything = verifier_et_cadrer_vision

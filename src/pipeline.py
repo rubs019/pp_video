@@ -8,7 +8,7 @@ from .enrichissement import (construire_base_nom, ecrire_legende_video,
                              enrichir_metadonnees, maj_manifeste)
 from .historique import charger_historique, est_deja_traitee, marquer_traitee
 from .telechargement import lister_videos_playlist, telecharger_video
-from .vision import verifier_et_cadrer_locate_anything
+from .vision import verifier_et_cadrer_vision
 
 
 def traiter_video(video_path, info):
@@ -18,7 +18,7 @@ def traiter_video(video_path, info):
     if not candidats:
         print(" -> Aucun moment fort audio, vidéo ignorée.")
         return 0
-    clips = verifier_et_cadrer_locate_anything(video_path, candidats)
+    clips = verifier_et_cadrer_vision(video_path, candidats)
     if not clips:
         print(" -> Aucun clip validé visuellement.")
         return 0
