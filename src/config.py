@@ -5,6 +5,7 @@ import os
 URL_SOURCE = "https://www.youtube.com/playlist?list=ID_DE_LA_PLAYLIST"  # Mettre l'URL de la playlist ici
 DOSSIER_BRUT = "./combats_bruts/"
 DOSSIER_SORTIE = "./highlights_prets/"
+FICHIER_COOKIES = "./cookies.txt"  # Utilisé par yt-dlp s'il existe (authentification YouTube)
 
 # --- Étape 1 : détection audio ---
 PERCENTILE_PIC = 98           # Top (100-X)% des fenêtres = pics candidats (auto-adaptatif à la dynamique)
@@ -16,7 +17,7 @@ MODELE_VISION = "mlx-community/LocateAnything-3B-4bit"  # VLM de grounding (MLX 
 PROMPT_DETECTION = "Detect the fighters."  # Grounding ciblé : isole les combattants (écarte arbitre/coins/public)
 FRAMES_PAR_SEGMENT = 2        # Frames échantillonnées par candidat (2 = compromis vitesse/robustesse)
 RATIO_VERTICAL = 9 / 16       # Format de sortie vertical (9:16)
-RECADRAGE_DYNAMIQUE = False   # True -> panoramique fluide (suit l'action) ; False -> cadrage statique
+RECADRAGE_DYNAMIQUE = True   # True -> panoramique fluide (suit l'action) ; False -> cadrage statique
 INTERVALLE_SUIVI = 3          # secondes entre keyframes de suivi (clip 30 s -> ~10 keyframes)
 LISSAGE_FENETRE = 3           # taille (impaire) de la moyenne glissante sur la trajectoire cx(t)
 PAN_VITESSE_MAX = 0.20        # vitesse de pano max, en fraction de crop_w par seconde (anti à-coups)

@@ -76,6 +76,7 @@ Le pipeline tient un **registre** (`highlights_prets/videos_traitees.json`) des 
 | `PLATEFORMES` | Liste des plateformes pour lesquelles générer des légendes. |
 | `LANGUES_LEGENDES` | Langues des légendes (défaut : français + anglais). |
 | `MODELE_LLM` | Modèle Ollama utilisé pour les légendes. Un modèle plus léger (ex. `mistral:7b`) = plus rapide. |
+| `FICHIER_COOKIES` | Chemin vers le fichier `cookies.txt` (défaut `./cookies.txt`), utilisé automatiquement par `yt-dlp` s'il existe. |
 
 ## 6. Limites connues et comportements attendus
 
@@ -87,9 +88,21 @@ Le pipeline tient un **registre** (`highlights_prets/videos_traitees.json`) des 
 ## 7. Prérequis (environnement)
 
 - **Mac Apple Silicon (M4)** — l'étape de validation visuelle repose sur un modèle optimisé Apple Silicon.
-- **ffmpeg** installé (`brew install ffmpeg`).
+- **ffmpeg** et **Deno** installés (`brew install ffmpeg deno`). Deno sert de runtime JavaScript pour `yt-dlp` afin de décoder les formats vidéo YouTube.
 - **Ollama** lancé localement avec un modèle instruct, pour les légendes.
-- Dépendances Python : `pip install -r requirements.txt`.
+- Dépendances Python : `pip install -r requirements.txt` (utiliser `pip install -U -r requirements.txt` pour garder `yt-dlp[default]` à jour).
+
+### Authentification YouTube (`cookies.txt`)
+
+Sur certaines vidéos, YouTube bloque les requêtes anonymes (*« Sign in to confirm you're not a bot »*). Le pipeline détecte automatiquement un fichier `cookies.txt` au format Netscape à la racine du projet (ignoré par git).
+
+Pour le générer depuis ton navigateur connecté (remplacer `brave` par `chrome`, `firefox` ou `safari` selon ton navigateur) :
+
+```bash
+.venv/bin/yt-dlp --cookies-from-browser brave --cookies cookies.txt --skip-download "https://www.youtube.com/watch?v=..."
+```
+
+Alternativement, tu peux exporter tes cookies au format Netscape avec une extension dédiée (ex. *Get cookies.txt LOCALLY*) et enregistrer le fichier à `./cookies.txt`.
 
 ## 8. Point juridique — à trancher avant diffusion
 

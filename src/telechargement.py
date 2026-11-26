@@ -1,11 +1,39 @@
 """Téléchargement yt-dlp : listing de playlist et récupération d'une vidéo (chemin réel + info)."""
 import os
 import re
+import shutil
 
 import yt_dlp
 
-from .config import DOSSIER_BRUT
+from .config import DOSSIER_BRUT, FICHIER_COOKIES
 from .ffmpeg_utils import resoudre_ffmpeg
+
+
+def _trouver_binaire(nom):
+    """Localise un binaire dans le PATH ou les emplacements Homebrew/macOS usuels."""
+    chemin = shutil.which(nom)
+    if chemin:
+        return chemin
+    for dossier in ("/opt/homebrew/bin", "/usr/local/bin"):
+        candidat = os.path.join(dossier, nom)
+        if os.path.exists(candidat):
+            return candidat
+    return None
+
+
+def _options_communes():
+    """Options yt-dlp partagées : cookies.txt (si présent) + runtime JS (deno/node pour EJS)."""
+    opts = {}
+    if FICHIER_COOKIES and os.path.exists(FICHIER_COOKIES):
+        opts["cookiefile"] = FICHIER_COOKIES
+    runtimes = {}
+    for nom in ("deno", "node"):
+        chemin = _trouver_binaire(nom)
+        if chemin:
+            runtimes[nom] = {"path": chemin}
+    if runtimes:
+        opts["js_runtimes"] = runtimes
+    return opts
 
 
 def _extraire_id_youtube(url):
@@ -27,6 +55,7 @@ def lister_videos_playlist(url):
         "no_warnings": True,
         "extract_flat": "in_playlist",
         "ignoreerrors": True,
+        **_options_communes(),
     }
     with yt_dlp.YoutubeDL(opts) as ydl:
         info = ydl.extract_info(url, download=False)
@@ -51,6 +80,7 @@ def telecharger_video(url):
         "http_headers": {
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
         },
+        **_options_communes(),
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=True)

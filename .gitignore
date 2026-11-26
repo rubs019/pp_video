@@ -6,6 +6,7 @@ __pycache__/
 # Données sources & sorties générées
 /combats_bruts
 /highlights_prets
+cookies.txt
 
 # Outillage / IDE / système
 .claude

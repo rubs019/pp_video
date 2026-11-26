@@ -4,8 +4,9 @@
 numpy==2.5.0
 scipy==1.18.0
 
-# Téléchargement YouTube (le merge vidéo+audio nécessite ffmpeg, installé hors pip : brew install ffmpeg)
-yt-dlp==2026.6.9
+# Téléchargement YouTube (nécessite ffmpeg et deno hors pip : brew install ffmpeg deno ;
+# [default] inclut yt-dlp-ejs, non figé car YouTube change fréquemment)
+yt-dlp[default]
 
 # Étape 2 — extraction de frames pour la validation visuelle
 opencv-python==5.0.0.93

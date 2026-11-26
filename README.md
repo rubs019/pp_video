@@ -13,8 +13,12 @@ Chaîne en 4 étapes : détection audio des moments forts → validation visuell
 ## Démarrage rapide
 
 ```bash
-# Prérequis : Mac Apple Silicon, ffmpeg (brew install ffmpeg), serveur Ollama lancé
+# Prérequis : Mac Apple Silicon, ffmpeg et deno (brew install ffmpeg deno), serveur Ollama lancé
 .venv/bin/pip install -r requirements.txt
+
+# Si YouTube demande une authentification ("Sign in to confirm you're not a bot"),
+# exporter une fois tes cookies navigateur dans cookies.txt (ignoré par git) :
+.venv/bin/yt-dlp --cookies-from-browser brave --cookies cookies.txt --skip-download "https://www.youtube.com/watch?v=..."
 
 # Lancer sur une playlist ou une vidéo (URL en argument)
 .venv/bin/python main.py "https://www.youtube.com/playlist?list=..."

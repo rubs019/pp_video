@@ -93,16 +93,18 @@ url ──▶ lister_videos_playlist ──▶ [urls]
 - `traiter_video` court-circuite proprement si l'étape 1 ou 2 ne produit rien.
 - À l'opposé de cette tolérance : **`lancer_ffmpeg` échoue bruyamment** (`subprocess.run` + vérification du code retour + `RuntimeError` avec stderr) — remplace l'ancien `os.system` silencieux.
 
-## 6. ffmpeg hors PATH
+## 6. Binaires hors PATH & téléchargement YouTube (`ffmpeg`, `deno`, `cookies.txt`)
 
-`resoudre_ffmpeg()` localise le binaire via `shutil.which`, puis des replis Homebrew (`/opt/homebrew/bin/ffmpeg`, `/usr/local/bin/ffmpeg`), et lève une erreur explicite sinon. Nécessaire car ffmpeg est souvent installé hors du PATH du venv/pyenv. `telecharger_video` passe aussi `ffmpeg_location` à yt-dlp (le merge vidéo+audio en a besoin).
+- **`ffmpeg`** : `resoudre_ffmpeg()` localise le binaire via `shutil.which`, puis des replis Homebrew (`/opt/homebrew/bin/ffmpeg`, `/usr/local/bin/ffmpeg`), et lève une erreur explicite sinon. Nécessaire car ffmpeg est souvent installé hors du PATH du venv/pyenv. `telecharger_video` passe aussi `ffmpeg_location` à yt-dlp (le merge vidéo+audio en a besoin).
+- **Runtime JS (`deno` / `node`) pour `yt-dlp-ejs`** : YouTube exige un runtime JavaScript supporté pour résoudre les challenges de formats (`n challenge`). `_options_communes()` dans `src/telechargement.py` détecte automatiquement `deno` (recommandé, `brew install deno`) et `node` via `_trouver_binaire()` (PATH puis `/opt/homebrew/bin`, `/usr/local/bin`) et les transmet via l'option `js_runtimes` aux appels `yt-dlp` (`lister_videos_playlist` et `telecharger_video`). Attention : `yt-dlp` rejette les versions anciennes de Node (ex. Node 20 marqué `unsupported`) ; privilégier `deno`.
+- **Authentification par cookies (`cookies.txt`)** : si `FICHIER_COOKIES` (`./cookies.txt`, exclu de git via `.gitignore`) existe, `_options_communes()` ajoute `"cookiefile": FICHIER_COOKIES` aux deux appels `yt-dlp`. Le fichier doit être au format Netscape HTTP Cookie File (générable via `.venv/bin/yt-dlp --cookies-from-browser <navigateur> --cookies cookies.txt --skip-download "<URL>"`).
 
 ## 7. Dépendances
 
-Épinglées dans `requirements.txt` (versions testées) :
-- `numpy`, `scipy` (audio), `yt-dlp` (téléchargement), `opencv-python` (frames), `requests` (Ollama).
+Déclarées dans `requirements.txt` (versions testées) :
+- `numpy`, `scipy` (audio), `yt-dlp[default]` (téléchargement + `yt-dlp-ejs`, volontairement non figé car YouTube évolue fréquemment), `opencv-python` (frames), `requests` (Ollama), `streamlit` (interface web).
 - `mlx`, `mlx-vlm` avec **marqueur de plateforme** `sys_platform=="darwin" and platform_machine=="arm64"` (ignorés hors Apple Silicon).
-- **Hors pip** : `ffmpeg` (Homebrew) et le serveur **Ollama** + un modèle instruct.
+- **Hors pip** : `ffmpeg` et `deno` (`brew install ffmpeg deno`), et le serveur **Ollama** + un modèle instruct.
 - Le modèle vision (~3,2 Go) est téléchargé au 1er run par mlx-vlm.
 
 ## 8. Décisions de conception (résumé)
