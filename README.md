@@ -23,6 +23,7 @@ Chaîne en 4 étapes : détection audio des moments forts → validation visuell
 # Lancer sur une playlist ou une vidéo (URL en argument)
 .venv/bin/python main.py "https://www.youtube.com/playlist?list=..."
 .venv/bin/python main.py "https://www.youtube.com/watch?v=..."
+.venv/bin/python main.py "https://www.youtube.com/watch?v=..." --debug-video  # génère aussi la démo split-screen
 
 # Interface web locale (Streamlit) : lancer un traitement, parcourir clips et légendes
 .venv/bin/streamlit run interface_web.py
@@ -36,7 +37,7 @@ Les clips, légendes `.txt` et le manifeste (`manifeste.csv` / `.json`) arrivent
 main.py            Point d'entrée CLI (URL en argument)
 interface_web.py   Interface web locale (Streamlit)
 src/               Package : config, ffmpeg_utils, telechargement, audio,
-                   vision, decoupage, enrichissement, pipeline
+                   vision, decoupage, debug_visuel, enrichissement, pipeline
 docs/              Documentation fonctionnelle et technique
 requirements.txt   Dépendances Python épinglées
 ```

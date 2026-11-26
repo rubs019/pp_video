@@ -16,6 +16,7 @@ Pipeline (package `src/`, point d'entrée `main.py` à la racine) qui, à partir
 | `audio.py` | Étape 1 — `analyser_audio_fast`. |
 | `vision.py` | Étape 2 — `verifier_et_cadrer_vision` (+ chargement modèle MLX Qwen3-VL). |
 | `decoupage.py` | Étape 3 — `couper_et_recadrer_video`. |
+| `debug_visuel.py` | Option `--debug-video` — `generer_videos_debug` (split-screen 16:9 annoté \| 9:16 final dans `highlights_prets/debug/`). |
 | `enrichissement.py` | Étape 4 — `enrichir_metadonnees`, nommage enrichi, légendes `.txt`, manifeste. |
 | `historique.py` | Registre des vidéos déjà traitées (`videos_traitees.json`) : `charger_historique`, `est_deja_traitee`, `marquer_traitee`. |
 | `pipeline.py` | Orchestration — `traiter_video`, `executer_pipeline_complet`. |
@@ -45,6 +46,9 @@ python3 -m py_compile src/*.py main.py
 
 # Retraiter même les vidéos déjà enregistrées au registre
 .venv/bin/python main.py "https://www.youtube.com/playlist?list=..." --force
+
+# Générer aussi les vidéos démo split-screen (16:9 annoté | 9:16 final)
+.venv/bin/python main.py "https://www.youtube.com/watch?v=..." --debug-video
 
 # Interface web locale (Streamlit) : onglets Lancer / Galerie / Manifeste
 .venv/bin/streamlit run interface_web.py

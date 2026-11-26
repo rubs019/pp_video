@@ -17,6 +17,7 @@ src/
 ├── audio.py               Étape 1 — analyser_audio_fast()
 ├── vision.py              Étape 2 — verifier_et_cadrer_vision()
 ├── decoupage.py           Étape 3 — couper_et_recadrer_video()
+├── debug_visuel.py        Mode --debug-video — rendu split-screen (16:9 annoté | 9:16 final)
 ├── enrichissement.py      Étape 4 — enrichir_metadonnees(), nommage, légendes, manifeste
 ├── historique.py          Registre des vidéos déjà traitées (videos_traitees.json)
 └── pipeline.py            Orchestration — traiter_video(), executer_pipeline_complet()
@@ -71,6 +72,7 @@ url ──▶ lister_videos_playlist ──▶ [urls]
 - Pour chaque clip : ffmpeg + filtre issu du cadrage (`_filtre_cadrage` : crop 9:16 serré ; crop élargi + fond flou via `split`/`gblur`/`overlay` ; ou **panoramique** `setpts=PTS-STARTPTS,crop=w:h:'x(t)':0`), ré-encodage `libx264 -crf 22` + audio **`aac 128k`** (ré-encodage audio volontaire : l'audio YouTube est souvent en `opus`, mal supporté en MP4).
 - **Seek selon le mode** : `pan` utilise un **seek en entrée** (`-ss debut -i video -t duree`) pour que `t` parte de 0 (indispensable à l'expression `x(t)`) ; `crop`/`pad` gardent le **trim en sortie** (`-i video -ss debut -to fin`), frame-exact.
 - Nom de sortie = `{base_nom}_{i}.mp4`, protégé contre l'écrasement par `_chemin_unique` (suffixe `_2`, `_3`…). **Sortie : liste des chemins produits.**
+- **Rendu debug split-screen (`debug_visuel.py`, option `--debug-video` / `DEBUG_VIDEO`)** : sans surcoût d'inférence, `vision.py` attache les métadonnées de suivi (`t_list`, boîtes brutes/filtrées, trajectoire `x_list`) à chaque clip. Si activé, `generer_videos_debug` assemble en streaming via pipe FFmpeg la vidéo source annotée à gauche (boîtes VLM, zone hors cadrage assombrie, rectangle 9:16 `pan`/`crop`/`pad`, bandeau HUD, courbe audio RMS temps réel) et le clip final 9:16 à droite, avec copie directe de la piste audio AAC, dans `highlights_prets/debug/{base_nom}_{i}_debug.mp4`.
 
 ### Étape 4 — Enrichissement (`enrichissement.py`)
 - **1 seul appel LLM par vidéo** (les métadonnées sont au niveau vidéo, chaque clip en hérite).

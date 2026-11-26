@@ -5,7 +5,9 @@ import os
 URL_SOURCE = "https://www.youtube.com/playlist?list=ID_DE_LA_PLAYLIST"  # Mettre l'URL de la playlist ici
 DOSSIER_BRUT = "./combats_bruts/"
 DOSSIER_SORTIE = "./highlights_prets/"
+DOSSIER_DEBUG = os.path.join(DOSSIER_SORTIE, "debug")  # Vidéos split-screen (--debug-video)
 FICHIER_COOKIES = "./cookies.txt"  # Utilisé par yt-dlp s'il existe (authentification YouTube)
+DEBUG_VIDEO = False           # True -> génère aussi une vidéo split-screen annotée par clip
 
 # --- Étape 1 : détection audio ---
 PERCENTILE_PIC = 98           # Top (100-X)% des fenêtres = pics candidats (auto-adaptatif à la dynamique)

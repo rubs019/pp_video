@@ -257,44 +257,58 @@ def _construire_expr_pan(t_list, x_list, x_max):
 
 
 def _cadrage_statique(model, processor, config, video_path, debut, fin):
-    """Cadrage figé (comportement historique) : renvoie (cadrage, info) ou (None, raison)."""
-    chemins, largeur, hauteur = _echantillonner_frames(video_path, debut, fin, FRAMES_PAR_SEGMENT)
-    if not chemins:
-        return None, "frames illisibles"
+    """Cadrage figé (comportement historique) : renvoie (cadrage, info, debug) ou (None, raison, None)."""
+    points, largeur, hauteur = _echantillonner_trajectoire(video_path, debut, fin, FRAMES_PAR_SEGMENT)
+    if not points:
+        return None, "frames illisibles", None
     combattants, total = [], 0
+    t_list, raw_boxes_list, filt_boxes_list = [], [], []
     try:
-        for chemin in chemins:
+        for chemin, t_rel in points:
             boites = _detecter_boites(model, processor, config, chemin)
             total += len(boites)
             filtres = _filtrer_combattants(boites, largeur, hauteur)
+            t_list.append(t_rel)
+            raw_boxes_list.append(boites)
+            filt_boxes_list.append(filtres)
             aire = sum((b[2] - b[0]) * (b[3] - b[1]) for b in filtres)
             aire_ref = sum((b[2] - b[0]) * (b[3] - b[1]) for b in combattants)
             if (len(filtres), aire) > (len(combattants), aire_ref):
                 combattants = filtres
     finally:
-        _supprimer_fichiers(chemins)
+        _supprimer_fichiers([chemin for chemin, _ in points])
     if not combattants:
-        return None, "aucune détection visuelle"
+        return None, "aucune détection visuelle", None
     cadrage = _calculer_cadrage(combattants, largeur, hauteur)
-    return cadrage, f"{total} détection(s), {len(combattants)} combattant(s), cadrage={cadrage['mode']}"
+    debug = {
+        "t_list": t_list,
+        "raw_boxes": raw_boxes_list,
+        "filtered_boxes": filt_boxes_list,
+        "largeur": largeur,
+        "hauteur": hauteur,
+    }
+    return cadrage, f"{total} détection(s), {len(combattants)} combattant(s), cadrage={cadrage['mode']}", debug
 
 
 def _cadrage_pan(model, processor, config, video_path, debut, fin):
     """Panoramique fluide : détections à intervalles -> trajectoire lissée -> expression x(t).
-    Renvoie (cadrage, info) ou (None, raison). Repli statique si les combattants sont trop écartés."""
+    Renvoie (cadrage, info, debug) ou (None, raison, None). Repli statique si les combattants sont trop écartés."""
     n = max(2, round((fin - debut) / INTERVALLE_SUIVI))
     points, largeur, hauteur = _echantillonner_trajectoire(video_path, debut, fin, n)
     if not points:
-        return None, "frames illisibles"
+        return None, "frames illisibles", None
     crop_w = int(round(hauteur * RATIO_VERTICAL)) // 2 * 2
 
     t_list, cx_raw, spans = [], [], []
+    raw_boxes_list, filt_boxes_list = [], []
     meilleur, meilleur_score = [], (-1, -1)
     try:
         for chemin, t_rel in points:
             boites = _detecter_boites(model, processor, config, chemin)
             filtres = _filtrer_combattants(boites, largeur, hauteur)
             t_list.append(t_rel)
+            raw_boxes_list.append(boites)
+            filt_boxes_list.append(filtres)
             if filtres:
                 cx, span = _centre_span(filtres, largeur)
                 cx_raw.append(cx)
@@ -309,8 +323,16 @@ def _cadrage_pan(model, processor, config, video_path, debut, fin):
         _supprimer_fichiers([chemin for chemin, _ in points])
 
     if not any(c is not None for c in cx_raw):
-        return None, "aucune détection visuelle"
+        return None, "aucune détection visuelle", None
 
+    debug = {
+        "t_list": t_list,
+        "raw_boxes": raw_boxes_list,
+        "filtered_boxes": filt_boxes_list,
+        "cx_raw": cx_raw,
+        "largeur": largeur,
+        "hauteur": hauteur,
+    }
     spans_ok = [s for s in spans if s is not None]
     fit = sum(1 for s in spans_ok if s * 1.2 <= crop_w) / len(spans_ok)
     nb = len(spans_ok)
@@ -318,10 +340,12 @@ def _cadrage_pan(model, processor, config, video_path, debut, fin):
         cx_liss = _lisser_trajectoire(t_list, _remplir_trous(cx_raw), crop_w)
         x_list = [int(max(0, min(round(c - crop_w / 2), largeur - crop_w))) for c in cx_liss]
         expr = _construire_expr_pan(t_list, x_list, largeur - crop_w)
+        debug["cx_liss"] = cx_liss
+        debug["x_list"] = x_list
         return {"mode": "pan", "w": crop_w, "h": hauteur, "expr": expr}, \
-            f"{nb} keyframe(s) suivie(s), cadrage=pan"
+            f"{nb} keyframe(s) suivie(s), cadrage=pan", debug
     cadrage = _calculer_cadrage(meilleur, largeur, hauteur)  # repli statique (crop/pad)
-    return cadrage, f"trop écartés (fit={fit:.0%}), repli cadrage={cadrage['mode']}"
+    return cadrage, f"trop écartés (fit={fit:.0%}), repli cadrage={cadrage['mode']}", debug
 
 
 def verifier_et_cadrer_vision(video_path, candidats):
@@ -333,13 +357,13 @@ def verifier_et_cadrer_vision(video_path, candidats):
 
     for debut, fin in candidats:
         if RECADRAGE_DYNAMIQUE:
-            cadrage, info = _cadrage_pan(model, processor, config, video_path, debut, fin)
+            cadrage, info, debug = _cadrage_pan(model, processor, config, video_path, debut, fin)
         else:
-            cadrage, info = _cadrage_statique(model, processor, config, video_path, debut, fin)
+            cadrage, info, debug = _cadrage_statique(model, processor, config, video_path, debut, fin)
         if cadrage is None:
             print(f"    Segment {debut}-{fin}s rejeté ({info}).")
             continue
-        clips_valides.append({"debut": debut, "fin": fin, "cadrage": cadrage})
+        clips_valides.append({"debut": debut, "fin": fin, "cadrage": cadrage, "debug": debug})
         print(f"    Segment {debut}-{fin}s validé ({info}).")
 
     _liberer_memoire_mlx()

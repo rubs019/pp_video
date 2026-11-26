@@ -2,7 +2,8 @@
 import os
 
 from .audio import analyser_audio_fast
-from .config import URL_SOURCE
+from .config import DEBUG_VIDEO, URL_SOURCE
+from .debug_visuel import generer_videos_debug
 from .decoupage import couper_et_recadrer_video
 from .enrichissement import (construire_base_nom, ecrire_legende_video,
                              enrichir_metadonnees, maj_manifeste)
@@ -11,7 +12,7 @@ from .telechargement import lister_videos_playlist, telecharger_video
 from .vision import verifier_et_cadrer_vision
 
 
-def traiter_video(video_path, info):
+def traiter_video(video_path, info, debug_video=False):
     """Enchaîne les étapes 1 → 2 → 3 → 4 sur une vidéo déjà téléchargée. Renvoie le nb de clips."""
     info = info or {}
     candidats = analyser_audio_fast(video_path)
@@ -26,15 +27,18 @@ def traiter_video(video_path, info):
     meta = enrichir_metadonnees(info)
     base_nom = construire_base_nom(meta, info.get("id"))
     chemins = couper_et_recadrer_video(video_path, clips, base_nom=base_nom)
+    if debug_video:
+        generer_videos_debug(video_path, clips, chemins)
     legende_txt = ecrire_legende_video(base_nom, chemins, meta)  # un seul .txt par vidéo
     total = maj_manifeste(chemins, meta, info, legende_txt)
     print(f" -> {len(chemins)} clip(s) + 1 légende vidéo. Manifeste : {total} entrée(s).")
     return len(chemins)
 
 
-def executer_pipeline_complet(url_source=None, force=False):
+def executer_pipeline_complet(url_source=None, force=False, debug_video=None):
     # URL passée en argument prioritaire ; sinon repli sur la valeur de config.
     url_source = url_source or URL_SOURCE
+    debug_video = DEBUG_VIDEO if debug_video is None else debug_video
     print("=== DÉMARRAGE DE LA MACHINE À HIGHLIGHTS EN FLUX TENDU ===")
     historique = charger_historique()
     videos = lister_videos_playlist(url_source)
@@ -54,7 +58,7 @@ def executer_pipeline_complet(url_source=None, force=False):
                 print(" -> Échec du téléchargement, on passe à la suivante.")
                 continue  # non marquée : nouvelle tentative au prochain run
             info = info or {}
-            nb = traiter_video(video_path, info)
+            nb = traiter_video(video_path, info, debug_video=debug_video)
             # Analyse menée à son terme -> on enregistre la vidéo (même si 0 clip).
             historique = marquer_traitee(info.get("id") or video_id,
                                          info.get("title", ""), nb)

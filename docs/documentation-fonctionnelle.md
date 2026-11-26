@@ -48,6 +48,9 @@ L'URL se donne **directement au lancement** (pas besoin de modifier de fichier) 
 
 # Tout retraiter en ignorant le registre des vidéos déjà traitées
 .venv/bin/python main.py "https://www.youtube.com/playlist?list=..." --force
+
+# Générer en plus une vidéo démo split-screen (16:9 annoté | 9:16 final) dans highlights_prets/debug/
+.venv/bin/python main.py "https://www.youtube.com/watch?v=VOTRE_VIDEO" --debug-video
 ```
 
 **Interface web (Streamlit)** — pour lancer un traitement et parcourir les résultats sans ligne de commande :
@@ -79,6 +82,7 @@ Le pipeline tient un **registre** (`highlights_prets/videos_traitees.json`) des 
 | `VISION_LARGEUR_MAX` | Largeur max des frames envoyées au VLM (défaut `640` px) pour accélérer l'inférence sans perte de cadrage. |
 | `MODELE_LLM` | Modèle Ollama utilisé pour les légendes. Un modèle plus léger (ex. `mistral:7b`) = plus rapide. |
 | `FICHIER_COOKIES` | Chemin vers le fichier `cookies.txt` (défaut `./cookies.txt`), utilisé automatiquement par `yt-dlp` s'il existe. |
+| `DEBUG_VIDEO` | `True` = génère systématiquement les vidéos split-screen debug (sinon activable au cas par cas via `--debug-video`). |
 
 ## 6. Limites connues et comportements attendus
 

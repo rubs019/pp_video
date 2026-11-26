@@ -24,6 +24,10 @@ def main():
         "--force", action="store_true",
         help="Retraiter même les vidéos déjà enregistrées dans le registre (videos_traitees.json).",
     )
+    parser.add_argument(
+        "--debug-video", action="store_true", default=None,
+        help="Générer en plus une vidéo split-screen annotée (16:9 debug | 9:16 final) par clip.",
+    )
     args = parser.parse_args()
 
     if "ID_DE_LA_PLAYLIST" in args.url:
@@ -32,7 +36,7 @@ def main():
             'Passez une URL en argument : python main.py "https://www.youtube.com/..."'
         )
 
-    executer_pipeline_complet(args.url, force=args.force)
+    executer_pipeline_complet(args.url, force=args.force, debug_video=args.debug_video)
 
 
 if __name__ == "__main__":
