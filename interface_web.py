@@ -17,8 +17,8 @@ import streamlit as st
 
 RACINE = Path(__file__).resolve().parent
 sys.path.insert(0, str(RACINE))
-from src.config import (DOSSIER_SORTIE, FICHIER_HISTORIQUE, MANIFESTE_CSV,  # noqa: E402
-                        MANIFESTE_JSON, URL_SOURCE)
+from src.config import (DOSSIER_DEBUG, DOSSIER_SORTIE, FICHIER_HISTORIQUE,  # noqa: E402
+                        MANIFESTE_CSV, MANIFESTE_JSON, URL_SOURCE)
 
 st.set_page_config(page_title="Machine à highlights", page_icon="🎬", layout="wide")
 st.title("🎬 Machine à highlights")
@@ -60,11 +60,14 @@ with onglet_run:
         placeholder="https://www.youtube.com/playlist?list=…  ou  …/watch?v=…",
     )
     force = st.checkbox("Forcer le retraitement des vidéos déjà traitées (--force)")
+    debug_video = st.checkbox("Générer les vidéos split-screen debug (--debug-video)")
 
     if st.button("Lancer", type="primary", disabled=not url.strip()):
         commande = [sys.executable, "main.py", url.strip()]
         if force:
             commande.append("--force")
+        if debug_video:
+            commande.append("--debug-video")
         st.caption("Commande : `" + " ".join(commande) + "`")
         with st.status("Traitement en cours…", expanded=True) as statut:
             zone = st.empty()
@@ -105,6 +108,13 @@ with onglet_galerie:
                 st.code(txt.read_text(encoding="utf-8"), language="markdown")
             else:
                 st.caption("Pas de légende associée.")
+        clip_debug = Path(DOSSIER_DEBUG) / f"{clip.stem}_debug.mp4"
+        if clip_debug.exists():
+            with st.expander("🛠️ Voir la vidéo debug split-screen"):
+                st.video(str(clip_debug))
+                st.download_button("⬇️ Télécharger la vidéo debug", clip_debug.read_bytes(),
+                                   file_name=clip_debug.name, mime="video/mp4",
+                                   key=f"dl_dbg_{clip.name}")
         st.divider()
 
 # --- Onglet 3 : manifeste + registre ---

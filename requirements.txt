@@ -14,9 +14,9 @@ opencv-python==5.0.0.93
 # Étape 4 — appels HTTP vers le serveur Ollama local
 requests==2.34.2
 
-# Étape 2 — LocateAnything-3B via MLX. Apple Silicon (macOS/arm64) UNIQUEMENT :
+# Étape 2 — Qwen3-VL-8B-Instruct-4bit via MLX. Apple Silicon (macOS/arm64) UNIQUEMENT :
 # le marqueur ignore ces paquets à l'install sur toute autre plateforme.
-# Modèle téléchargé au 1er run (~3,2 Go), licence NVIDIA recherche/non-commerciale.
+# Modèle téléchargé au 1er run (~5,8 Go ; variante 4B ~3,1 Go pour Mac 16 Go), licence Apache 2.0.
 mlx==0.31.2 ; sys_platform == "darwin" and platform_machine == "arm64"
 mlx-vlm==0.6.3 ; sys_platform == "darwin" and platform_machine == "arm64"
 
